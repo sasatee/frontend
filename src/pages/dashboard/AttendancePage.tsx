@@ -1,20 +1,10 @@
-import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Plus, Search, Calendar, Clock, Download, Filter, User, CalendarDays } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
-import { Button } from '@/components/ui/button';
-import { DataTable } from '@/components/common/DataTable';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { ErrorAlert } from '@/components/ErrorAlert';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
+import { ErrorAlert } from '@/components/ErrorAlert';
 import { AttendanceStatusBadge } from '@/components/attendance/AttendanceStatusBadge';
-import { Attendance } from '@/types/attendance';
-import { useAttendance } from '@/hooks/useAttendance';
-import { format, isToday, parseISO } from 'date-fns';
-import { calculateWorkHours, formatWorkHours, cn } from '@/lib/utils';
-import { useEmployees } from '@/hooks/useEmployees';
+import { DataTable } from '@/components/common/DataTable';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -23,18 +13,26 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { Separator } from '@/components/ui/separator';
+import { Tooltip } from '@/components/ui/tooltip';
+import { useToast } from '@/components/ui/use-toast';
+import { useAttendance } from '@/hooks/useAttendance';
+import { useEmployees } from '@/hooks/useEmployees';
+import { calculateWorkingHours, formatWorkHours } from '@/lib/utils';
+import { Attendance } from '@/types/attendance';
+import { format, isToday, parseISO } from 'date-fns';
+import { Calendar, CalendarDays, Clock, Download, Filter, Plus, Search, User } from 'lucide-react';
+import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function AttendancePage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -239,7 +237,7 @@ export default function AttendancePage() {
       header: 'Work Hours',
       cell: ({ row }: { row: { original: Attendance } }) => {
         const attendance = row.original;
-        const workHours = calculateWorkHours(attendance.checkInTime, attendance.checkOutTime);
+        const workHours = calculateWorkingHours(attendance.checkInTime, attendance.checkOutTime);
         return (
           <div className="flex items-center gap-2">
             <span>{formatWorkHours(workHours)}</span>
@@ -265,7 +263,7 @@ export default function AttendancePage() {
       cell: ({ row }: { row: { original: Attendance } }) => {
         const attendance = row.original;
         return (
-          <AttendanceStatusBadge status={attendance.status} checkInTime={attendance.checkInTime} />
+          <AttendanceStatusBadge checkInTime={attendance.checkInTime} checkOutTime={attendance.checkOutTime} />
         );
       },
     },

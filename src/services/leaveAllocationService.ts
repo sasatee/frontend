@@ -79,9 +79,15 @@ export const getLeaveBalance = async (
     url += `/${period}`;
 
     console.log('Fetching leave balance from URL:', url);
+    console.log('Employee ID:', employeeId);
+    console.log('Period:', period);
+    console.log('Leave Type ID:', leaveTypeId);
+
     const { data } = await axios.get(url);
 
     console.log('Leave balance API response:', data);
+    console.log('Response type:', typeof data);
+    console.log('Is array:', Array.isArray(data));
 
     if (!data) {
       throw new Error('No balance data received from server');
@@ -90,6 +96,9 @@ export const getLeaveBalance = async (
     return data;
   } catch (error: any) {
     console.error('Error fetching leave balance:', error);
+    console.error('Error response:', error.response);
+    console.error('Error status:', error.response?.status);
+    console.error('Error data:', error.response?.data);
 
     // Handle validation errors
     if (error.response?.data?.errors) {

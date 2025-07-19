@@ -1,25 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { ErrorAlert } from '@/components/ErrorAlert';
-import { useToast } from '@/components/ui/use-toast';
-import { Download, Receipt, Calendar, DollarSign, Plus, Minus, FileText } from 'lucide-react';
-import { format } from 'date-fns';
-import { getCurrentUserEmployeeId } from '@/lib/data-access-control';
-import { cn } from '@/lib/utils';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { useEmployeePayroll } from '@/hooks/useEmployeePayroll';
+import { format } from 'date-fns';
+import { Calendar, DollarSign, Download, FileText, Minus, Plus, Receipt } from 'lucide-react';
+import { useState } from 'react';
 
 interface PayrollRecord {
   id: string;
@@ -39,89 +28,33 @@ interface PayrollRecord {
 export default function MyPayrollPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
-  const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
 
-  const currentEmployeeId = getCurrentUserEmployeeId();
-
-  // Generate year options (current year and 4 previous years)
-  const currentYear = new Date().getFullYear();
-  const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i);
-
-  // Month options
-  const monthOptions = [
-    { value: 'all', label: 'All Months' },
-    { value: '01', label: 'January' },
-    { value: '02', label: 'February' },
-    { value: '03', label: 'March' },
-    { value: '04', label: 'April' },
-    { value: '05', label: 'May' },
-    { value: '06', label: 'June' },
-    { value: '07', label: 'July' },
-    { value: '08', label: 'August' },
-    { value: '09', label: 'September' },
-    { value: '10', label: 'October' },
-    { value: '11', label: 'November' },
-    { value: '12', label: 'December' },
-  ];
-
-  // Fetch payroll data
+  // Use the new employee payroll hook
   const {
-    data: payrollRecords = [],
+    payrollRecords,
+    totalAllowances,
+    totalDeductions,
     isLoading,
     error,
     refetch,
-  } = useQuery<PayrollRecord[]>({
-    queryKey: ['my-payroll', currentEmployeeId, selectedYear, selectedMonth],
-    queryFn: async () => {
-      if (!currentEmployeeId) {
-        throw new Error('Employee ID not found');
-      }
+    currentEmployeeId,
+  } = useEmployeePayroll();
 
-      // In a real implementation, this would call an API endpoint
-      // For now, we'll return mock data or implement the API call
-      const response = await fetch(
-        `/api/Payroll/employee/${currentEmployeeId}?year=${selectedYear}&month=${selectedMonth}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        }
-      );
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch payroll data');
-      }
 
-      return response.json();
-    },
-    enabled: !!currentEmployeeId,
-    retry: 2,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  // Ensure payrollRecords is an array and handle different response structures
+  const filteredRecords = Array.isArray(payrollRecords) ? payrollRecords : [];
 
-  // Filter records based on selected filters
-  const filteredRecords = payrollRecords.filter((record) => {
-    const recordDate = new Date(record.payDate);
-    const recordYear = recordDate.getFullYear().toString();
-    const recordMonth = (recordDate.getMonth() + 1).toString().padStart(2, '0');
-
-    if (recordYear !== selectedYear) return false;
-    if (selectedMonth !== 'all' && recordMonth !== selectedMonth) return false;
-
-    return true;
-  });
-
-  // Calculate statistics
+  // Calculate statistics using totals from the hook
   const statistics = {
     totalRecords: filteredRecords.length,
-    totalEarnings: filteredRecords.reduce((sum, record) => sum + record.netPay, 0),
-    totalAllowances: filteredRecords.reduce((sum, record) => sum + record.allowances, 0),
-    totalDeductions: filteredRecords.reduce((sum, record) => sum + record.deductions, 0),
+    totalEarnings: filteredRecords.reduce((sum: number, record: PayrollRecord) => sum + (record.netPay || 0), 0),
+    totalAllowances: totalAllowances,
+    totalDeductions: totalDeductions,
     averageNetPay:
       filteredRecords.length > 0
-        ? filteredRecords.reduce((sum, record) => sum + record.netPay, 0) / filteredRecords.length
+        ? filteredRecords.reduce((sum: number, record: PayrollRecord) => sum + (record.netPay || 0), 0) / filteredRecords.length
         : 0,
   };
 
@@ -192,10 +125,16 @@ export default function MyPayrollPage() {
     return (
       <div className="container mx-auto py-10">
         <ErrorAlert
-          title="Error Loading Payroll"
           message={error instanceof Error ? error.message : 'Failed to load payroll records'}
-          onRetry={refetch}
         />
+        <div className="mt-4">
+          <button
+            onClick={() => refetch()}
+            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -215,46 +154,15 @@ export default function MyPayrollPage() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Note: Backend doesn't support year/month filtering - showing all records */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Filter Payroll Records</CardTitle>
+          <CardTitle className="text-lg">Payroll Records</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-end">
-          <div className="flex-1">
-            <label htmlFor="year-select" className="text-sm font-medium">
-              Year
-            </label>
-            <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger id="year-select">
-                <SelectValue placeholder="Select year" />
-              </SelectTrigger>
-              <SelectContent>
-                {yearOptions.map((year) => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex-1">
-            <label htmlFor="month-select" className="text-sm font-medium">
-              Month
-            </label>
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger id="month-select">
-                <SelectValue placeholder="Select month" />
-              </SelectTrigger>
-              <SelectContent>
-                {monthOptions.map((month) => (
-                  <SelectItem key={month.value} value={month.value}>
-                    {month.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <CardContent>
+          {/* <p className="text-sm text-muted-foreground">
+            Showing all payroll records. Year/month filtering is not supported by the backend.
+          </p> */}
         </CardContent>
       </Card>
 
@@ -323,14 +231,24 @@ export default function MyPayrollPage() {
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Payroll Records</h2>
 
-        {filteredRecords.length === 0 ? (
+        {!filteredRecords || filteredRecords.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center">
               <Receipt className="mx-auto h-12 w-12 text-muted-foreground" />
               <h3 className="mt-4 text-lg font-medium">No payroll records found</h3>
               <p className="text-muted-foreground">
-                No payroll records found for the selected period.
+                No payroll records found. This could be because:
               </p>
+              <ul className="mt-2 text-sm text-muted-foreground">
+                <li>• No payroll data has been generated yet</li>
+                <li>• The API endpoint is not returning data in the expected format</li>
+                <li>• There might be an issue with the backend service</li>
+              </ul>
+              <div className="mt-4">
+                <Button onClick={() => refetch()} variant="outline">
+                  Retry
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ) : (

@@ -1,7 +1,7 @@
 import axios from '@/lib/axios';
-import { Attendance } from '@/types/attendance';
-import { showErrorToast, retryOperation } from '@/lib/error-handler';
+import { retryOperation, showErrorToast } from '@/lib/error-handler';
 import { sanitizeObject } from '@/lib/utils';
+import { Attendance } from '@/types/attendance';
 
 export interface AttendanceDTO {
   employeeId: string;
@@ -9,7 +9,6 @@ export interface AttendanceDTO {
   checkInTime: string;
   checkOutTime: string;
   overtimeHours: number;
-  status?: string;
 }
 
 export class AttendanceService {
@@ -44,8 +43,47 @@ export class AttendanceService {
       });
       return response.data;
     } catch (error) {
-      const errorDetails = showErrorToast(error, `fetching attendance ${id}`);
-      throw new Error(errorDetails.message);
+      showErrorToast(error, `fetching attendance ${id}`);
+      throw new Error('Failed to fetch attendance record');
+    }
+  }
+
+  /**
+   * Get attendance records for a specific employee
+   * @param employeeId The employee ID to fetch attendance for
+   * @param month Optional month filter (YYYY-MM format)
+   * @returns Promise<Attendance[]> Array of attendance records
+   */
+  async getEmployeeAttendance(employeeId: string, month?: string): Promise<Attendance[]> {
+    try {
+      let url = `/api/Attendance/employee/${employeeId}`;
+
+      // Add month query parameter if provided
+      if (month) {
+        url += `?month=${month}`;
+      }
+
+      console.log('🔄 Fetching employee attendance:', { employeeId, month, url });
+
+      const response = await axios.get<Attendance[]>(url, {
+        headers: this.headers,
+      });
+
+      console.log('✅ Employee attendance response:', response.data);
+      return response.data || [];
+    } catch (error: any) {
+      console.error('❌ Employee attendance fetch failed:', error.response?.data || error.message);
+
+      // Provide specific error messages
+      if (error.response?.status === 404) {
+        throw new Error('Employee not found or no attendance records available');
+      } else if (error.response?.status === 403) {
+        throw new Error('Access denied. You can only view your own attendance records.');
+      } else if (error.response?.status === 500) {
+        throw new Error('Server error while fetching attendance records. Please try again.');
+      } else {
+        throw new Error(error.response?.data?.message || 'Failed to fetch attendance records');
+      }
     }
   }
 
@@ -62,14 +100,13 @@ export class AttendanceService {
       dateObj.setHours(0, 0, 0, 0);
       const isoDate = dateObj.toISOString();
 
-      // Sanitize and format input data
+      // Sanitize and format input data (removed status field)
       const sanitizedData = sanitizeObject({
         employeeId: data.employeeId,
         date: isoDate,
         checkInTime: formatTime(data.checkInTime),
         checkOutTime: formatTime(data.checkOutTime),
         overtimeHours: Number(data.overtimeHours),
-        status: data.status || 'Present',
       });
 
       console.log('Sending attendance data:', sanitizedData);
@@ -113,14 +150,13 @@ export class AttendanceService {
         isoDate = dateObj.toISOString();
       }
 
-      // Sanitize input data
+      // Sanitize input data (removed status field)
       const sanitizedData = sanitizeObject({
         employeeId: data.employeeId,
         date: isoDate,
         checkInTime: data.checkInTime ? formatTime(data.checkInTime) : undefined,
         checkOutTime: data.checkOutTime ? formatTime(data.checkOutTime) : undefined,
         overtimeHours: data.overtimeHours !== undefined ? Number(data.overtimeHours) : undefined,
-        status: data.status,
       });
 
       console.log('Sending updated attendance data:', sanitizedData);
@@ -161,23 +197,10 @@ export class AttendanceService {
       try {
         return await this.getAttendanceById(id);
       } catch (fetchError) {
-        console.error('Failed to fetch updated attendance:', fetchError);
-        throw new Error('Update succeeded but failed to fetch updated record');
+        throw new Error('Attendance updated but failed to fetch updated record');
       }
     } catch (error: any) {
-      console.error('Update error details:', error.response?.data || error);
-
-      if (error.response?.status === 400) {
-        const message =
-          error.response.data?.message || error.response.data || 'Invalid attendance data';
-        throw new Error(message);
-      }
-      if (error.response?.status === 404) {
-        throw new Error('Attendance record not found');
-      }
-      if (error.response?.status === 500) {
-        throw new Error('Server error while updating attendance. Please try again.');
-      }
+      console.error('Error updating attendance:', error);
       throw new Error(error.message || 'Failed to update attendance');
     }
   }
@@ -188,19 +211,18 @@ export class AttendanceService {
         headers: this.headers,
       });
     } catch (error: any) {
-      if (error.response?.status === 404) {
-        throw new Error('Attendance record not found');
-      }
-      throw new Error(error.message || 'Failed to delete attendance');
+      showErrorToast(error, 'deleting attendance');
+      throw new Error('Failed to delete attendance');
     }
   }
 }
 
-export const attendanceService = new AttendanceService();
+const attendanceService = new AttendanceService();
 
-// Export functions for direct use
 export const getAttendances = () => attendanceService.getAttendances();
 export const getAttendanceById = (id: string) => attendanceService.getAttendanceById(id);
+export const getEmployeeAttendance = (employeeId: string, month?: string) =>
+  attendanceService.getEmployeeAttendance(employeeId, month);
 export const createAttendance = (data: AttendanceDTO) => attendanceService.createAttendance(data);
 export const updateAttendance = (id: string, data: Partial<AttendanceDTO>) =>
   attendanceService.updateAttendance(id, data);

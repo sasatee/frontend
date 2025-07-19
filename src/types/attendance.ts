@@ -5,7 +5,6 @@ export interface Attendance {
   checkInTime: string;
   checkOutTime: string;
   overtimeHours: number;
-  status?: string;
   employee?: {
     id: string;
     firstName: string;
@@ -20,5 +19,4 @@ export interface AttendanceFormValues {
   checkInTime: string;
   checkOutTime: string;
   overtimeHours: number;
-  status?: string;
 }

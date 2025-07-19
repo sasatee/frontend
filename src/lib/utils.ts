@@ -1,49 +1,111 @@
 import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import DOMPurify from 'dompurify';
+import { twMerge } from 'tailwind-merge';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function parseTime(timeString: string | null | undefined): Date | null {
+/**
+ * Parse time string to Date object for comparison
+ * @param timeString Time in HH:mm or HH:mm:ss format
+ * @returns Date object with the time set, or null if invalid
+ */
+export function parseTime(timeString: string): Date | null {
   if (!timeString) return null;
 
   try {
-    const [hours, minutes] = timeString.split(':').map(Number);
-    if (isNaN(hours) || isNaN(minutes)) return null;
-
+    const [hours, minutes, seconds = '00'] = timeString.split(':');
     const date = new Date();
-    date.setHours(hours, minutes, 0, 0);
+    date.setHours(parseInt(hours, 10), parseInt(minutes, 10), parseInt(seconds, 10), 0);
     return date;
   } catch (error) {
+    console.error('Error parsing time:', timeString, error);
     return null;
   }
 }
 
-export function calculateWorkHours(
-  checkIn: string | null | undefined,
-  checkOut: string | null | undefined
-): number {
+/**
+ * Calculate working hours between check-in and check-out times
+ * @param checkInTime Check-in time in HH:mm format
+ * @param checkOutTime Check-out time in HH:mm format
+ * @returns Working hours as a number
+ */
+export function calculateWorkingHours(checkInTime: string, checkOutTime: string): number {
+  const checkIn = parseTime(checkInTime);
+  const checkOut = parseTime(checkOutTime);
+
   if (!checkIn || !checkOut) return 0;
 
-  const checkInTime = parseTime(checkIn);
-  const checkOutTime = parseTime(checkOut);
-
-  if (!checkInTime || !checkOutTime) return 0;
-
-  let diffInMs = checkOutTime.getTime() - checkInTime.getTime();
-
-  // If the difference is negative, it means checkout is on the next day
-  if (diffInMs < 0) {
-    diffInMs += 24 * 60 * 60 * 1000; // Add 24 hours in milliseconds
-  }
-
-  return Math.round((diffInMs / (1000 * 60 * 60)) * 100) / 100; // Round to 2 decimal places
+  const diffMs = checkOut.getTime() - checkIn.getTime();
+  return diffMs / (1000 * 60 * 60); // Convert to hours
 }
 
-export function getAttendanceStatus(checkInTime: string, checkOutTime: string) {
-  return checkInTime && checkOutTime ? 'Completed' : checkInTime ? 'In Progress' : 'Not Started';
+/**
+ * Calculate attendance status based on check-in/check-out times and working hours
+ * @param checkInTime Check-in time in HH:mm format
+ * @param checkOutTime Check-out time in HH:mm format
+ * @param expectedCheckIn Expected check-in time (default: 09:00)
+ * @returns Attendance status string
+ */
+export function calculateAttendanceStatus(
+  checkInTime: string,
+  checkOutTime: string,
+  expectedCheckIn: string = '09:00'
+): string {
+  // If no check-in time, consider as absent
+  if (!checkInTime) {
+    return 'Absent';
+  }
+
+  // If no check-out time, consider as not completed
+  if (!checkOutTime) {
+    return 'Not Completed';
+  }
+
+  const workingHours = calculateWorkingHours(checkInTime, checkOutTime);
+  const checkIn = parseTime(checkInTime);
+  const expected = parseTime(expectedCheckIn);
+
+  if (!checkIn || !expected) {
+    return 'Invalid';
+  }
+
+  // Check if late (check-in after expected time)
+  const isLate = checkIn > expected;
+
+  // Determine status based on working hours
+  if (workingHours >= 7) {
+    return isLate ? 'Late' : 'Present';
+  } else if (workingHours >= 4) {
+    return 'Half Day';
+  } else if (workingHours > 0) {
+    return 'Partial';
+  } else {
+    return 'Absent';
+  }
+}
+
+/**
+ * Get status badge variant based on attendance status
+ * @param status Attendance status
+ * @returns Badge variant string
+ */
+export function getStatusBadgeVariant(status: string): 'default' | 'destructive' | 'warning' | 'secondary' | 'outline' {
+  switch (status) {
+    case 'Present':
+      return 'default';
+    case 'Absent':
+      return 'destructive';
+    case 'Half Day':
+    case 'Late':
+      return 'warning';
+    case 'On Leave':
+    case 'Not Completed':
+      return 'secondary';
+    default:
+      return 'outline';
+  }
 }
 
 export function formatWorkHours(hours: number): string {

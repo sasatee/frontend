@@ -1,15 +1,16 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -20,9 +21,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Deduction, CreateDeductionDto, UpdateDeductionDto } from '@/types/deduction';
-import { useEmployees } from '@/hooks/useEmployees';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import {
   Select,
@@ -32,10 +30,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useEmployees } from '@/hooks/useEmployees';
+import { CreateDeductionDto, Deduction, UpdateDeductionDto } from '@/types/deduction';
 
 const deductionSchema = z.object({
   typeName: z.string().min(1, 'Type name is required'),
-  description: z.string().min(1, 'Description is required'),
   amount: z.number().min(0, 'Amount must be greater than or equal to 0'),
   employeeId: z.string().min(1, 'Employee is required'),
   remarks: z.string().default(''),
@@ -64,7 +63,6 @@ export function DeductionDialog({
     resolver: zodResolver(deductionSchema),
     defaultValues: {
       typeName: initialData?.typeName || '',
-      description: initialData?.description || '',
       amount: initialData?.amount || 0,
       employeeId: initialData?.employeeId || '',
       remarks: initialData?.remarks || '',
@@ -76,19 +74,17 @@ export function DeductionDialog({
       form.reset(
         initialData
           ? {
-              typeName: initialData.typeName,
-              description: initialData.description,
-              amount: initialData.amount,
-              employeeId: initialData.employeeId,
-              remarks: initialData.remarks || '',
-            }
+            typeName: initialData.typeName,
+            amount: initialData.amount,
+            employeeId: initialData.employeeId,
+            remarks: initialData.remarks || '',
+          }
           : {
-              typeName: '',
-              description: '',
-              amount: 0,
-              employeeId: '',
-              remarks: '',
-            }
+            typeName: '',
+            amount: 0,
+            employeeId: '',
+            remarks: '',
+          }
       );
     }
   }, [open, initialData, form]);
@@ -128,20 +124,6 @@ export function DeductionDialog({
                   <FormLabel>Type Name</FormLabel>
                   <FormControl>
                     <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

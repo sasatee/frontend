@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { validators, validationPatterns, validationMessages } from './validation';
+import { validationMessages, validationPatterns, validators } from './validation';
 
 export const attendanceFormSchema = z
   .object({
@@ -17,7 +17,6 @@ export const attendanceFormSchema = z
       .number()
       .min(0, 'Overtime hours cannot be negative')
       .max(8, 'Overtime hours cannot exceed 8 hours per day'),
-    status: z.enum(['Present', 'Absent', 'HalfDay', 'OnLeave']).optional(),
   })
   .refine(
     (data) => {
@@ -49,21 +48,15 @@ export const attendanceFormSchema = z
       const checkOutMinutes = checkOutHour * 60 + checkOutMinute;
       const workingMinutes = checkOutMinutes - checkInMinutes;
 
-      // If status is HalfDay, require at least 4 hours
-      if (data.status === 'HalfDay' && workingMinutes < 240) {
-        return false;
-      }
-
-      // If status is Present, require at least 7 hours
-      if ((data.status === 'Present' || !data.status) && workingMinutes < 420) {
+      // Require at least 4 hours of work
+      if (workingMinutes < 240) {
         return false;
       }
 
       return true;
     },
     {
-      message:
-        'Working hours must meet minimum requirements (7 hours for full day, 4 hours for half day)',
+      message: 'Working hours must be at least 4 hours',
       path: ['checkOutTime'],
     }
   )
@@ -99,7 +92,6 @@ export const attendanceBulkUploadSchema = z.array(
       .string()
       .min(1, 'Check-out time is required')
       .regex(validationPatterns.timePattern, validationMessages.timeFormat),
-    status: z.enum(['Present', 'Absent', 'HalfDay', 'OnLeave']).optional(),
   })
 );
 

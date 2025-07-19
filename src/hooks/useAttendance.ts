@@ -1,8 +1,14 @@
-import { usePaginatedData } from './usePaginatedData';
-import { attendanceService, AttendanceDTO } from '@/services/attendanceService';
+import { useToast } from '@/components/ui/use-toast';
+import {
+  AttendanceDTO,
+  createAttendance as createAttendanceService,
+  deleteAttendance as deleteAttendanceService,
+  getAttendances,
+  updateAttendance as updateAttendanceService
+} from '@/services/attendanceService';
 import { Attendance } from '@/types/attendance';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useToast } from '@/components/ui/use-toast';
+import { usePaginatedData } from './usePaginatedData';
 
 interface UpdateAttendanceInput {
   id: string;
@@ -15,10 +21,10 @@ export const useAttendance = (initialParams = {}) => {
 
   const paginatedData = usePaginatedData<Attendance, AttendanceDTO, UpdateAttendanceInput>({
     queryKey: 'attendances',
-    fetchFn: attendanceService.getAttendances.bind(attendanceService),
-    createFn: (data) => attendanceService.createAttendance(data),
-    updateFn: (data) => attendanceService.updateAttendance(data.id, data.data),
-    deleteFn: attendanceService.deleteAttendance.bind(attendanceService),
+    fetchFn: getAttendances,
+    createFn: createAttendanceService,
+    updateFn: (data) => updateAttendanceService(data.id, data.data),
+    deleteFn: deleteAttendanceService,
     idField: 'id',
     initialParams: {
       sortBy: 'date',
@@ -30,7 +36,7 @@ export const useAttendance = (initialParams = {}) => {
   });
 
   const createAttendance = useMutation({
-    mutationFn: attendanceService.createAttendance,
+    mutationFn: createAttendanceService,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendances'] });
       toast({
@@ -51,7 +57,7 @@ export const useAttendance = (initialParams = {}) => {
     mutationFn: async ({ id, data }: UpdateAttendanceInput) => {
       try {
         console.log('Updating attendance with data:', { id, data });
-        const result = await attendanceService.updateAttendance(id, data);
+        const result = await updateAttendanceService(id, data);
         console.log('Update result:', result);
         return result;
       } catch (error) {
@@ -71,16 +77,16 @@ export const useAttendance = (initialParams = {}) => {
         return old.map((item) =>
           item.id === id
             ? {
-                ...item,
-                ...data,
-              }
+              ...item,
+              ...data,
+            }
             : item
         );
       });
 
       return { previousData };
     },
-    onSuccess: (result, variables) => {
+    onSuccess: (result, _variables) => {
       console.log('Update successful:', result);
       // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ['attendances'] });
@@ -89,7 +95,7 @@ export const useAttendance = (initialParams = {}) => {
         description: 'Attendance record updated successfully',
       });
     },
-    onError: (error: Error, variables, context) => {
+    onError: (error: Error, _variables, context) => {
       console.error('Update error:', error);
       // Rollback to the previous value
       if (context?.previousData) {
@@ -108,7 +114,7 @@ export const useAttendance = (initialParams = {}) => {
   });
 
   const deleteAttendance = useMutation({
-    mutationFn: attendanceService.deleteAttendance,
+    mutationFn: deleteAttendanceService,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendances'] });
       toast({

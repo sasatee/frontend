@@ -1,15 +1,8 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { Attendance } from '@/types/attendance';
-import { attendanceService } from '@/services/attendanceService';
-import { useToast } from '@/components/ui/use-toast';
-import { format } from 'date-fns';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useEmployees } from '@/hooks/useEmployees';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import {
   Select,
   SelectContent,
@@ -17,7 +10,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useToast } from '@/components/ui/use-toast';
 import { useAttendance } from '@/hooks/useAttendance';
+import { useEmployees } from '@/hooks/useEmployees';
+import { getAttendanceById } from '@/services/attendanceService';
+import { Attendance } from '@/types/attendance';
+import { format } from 'date-fns';
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 
 export default function EditAttendancePage() {
   const { id } = useParams<{ id: string }>();
@@ -32,7 +32,7 @@ export default function EditAttendancePage() {
     const fetchAttendance = async () => {
       try {
         if (!id) return;
-        const data = await attendanceService.getAttendanceById(id);
+        const data = await getAttendanceById(id);
         setAttendance(data);
       } catch (error) {
         toast({
@@ -61,7 +61,7 @@ export default function EditAttendancePage() {
           checkInTime: attendance.checkInTime,
           checkOutTime: attendance.checkOutTime,
           overtimeHours: attendance.overtimeHours,
-          status: attendance.status,
+
         },
       });
 

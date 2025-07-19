@@ -1,43 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { cn } from '../../lib/utils';
+import { useRoleBasedAccess } from '@/components/auth/RoleBasedUI';
+import { useLeaveRequests } from '@/hooks/useLeaveRequests';
 import {
-  Users,
-  Building2,
-  Clock,
-  DollarSign,
-  LayoutDashboard,
-  UserCircle,
-  Settings,
-  Shield,
-  ChevronLeft,
-  ChevronRight,
-  LogOut,
-  Briefcase,
-  Plus,
-  Group,
   BadgeDollarSign,
-  MinusCircle,
-  CalendarDays,
-  Menu,
-  Calendar,
+  Briefcase,
   Building,
-  CalendarRange,
+  Building2,
+  Calendar,
   CalendarCheck,
   CalendarClock,
-  X,
-  Receipt,
+  CalendarDays,
+  CalendarRange,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Group,
+  LayoutDashboard,
+  LogOut,
   Minus,
+  MinusCircle,
+  Plus,
+  Receipt,
+  Settings,
+  Shield,
+  UserCircle,
+  Users,
+  X
 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { ScrollArea } from './scroll-area';
-import { useRoleBasedAccess } from '@/components/auth/RoleBasedUI';
-import { Button } from './button';
-import { Separator } from './separator';
-import { Badge } from './badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip';
+import { cn } from '../../lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from './avatar';
-import { useLeaveRequests } from '@/hooks/useLeaveRequests';
+import { Badge } from './badge';
+import { Button } from './button';
+import { ScrollArea } from './scroll-area';
+import { Tooltip, TooltipProvider, TooltipTrigger } from './tooltip';
 
 interface SidebarProps {
   isMobileOpen?: boolean;
@@ -71,7 +68,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onMobileClose }) => {
   // Calculate pending leave requests
   const pendingLeaveRequests = Array.isArray(leaveRequests)
     ? leaveRequests.filter((request: any) => request.approved === null && !request.cancelled)
-        ?.length || 0
+      ?.length || 0
     : 0;
 
   // Generate sidebar sections with dynamic badge for leave requests
@@ -345,7 +342,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onMobileClose }) => {
         <div className="flex h-16 items-center justify-between border-b px-4">
           <div className={cn('flex items-center gap-2', isCollapsed && 'hidden')}>
             <Building2 className="h-6 w-6 text-primary" />
-            <span className="font-semibold">HR System</span>
+            <span className="font-semibold">UTM HR Management System</span>
           </div>
           <div className="flex items-center">
             <Button

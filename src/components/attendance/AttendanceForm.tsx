@@ -1,7 +1,4 @@
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useNavigate } from 'react-router-dom';
-import { useToast } from '@/components/ui/use-toast';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -12,6 +9,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import {
   Select,
   SelectContent,
@@ -19,15 +17,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useToast } from '@/components/ui/use-toast';
+import { useAttendance } from '@/hooks/useAttendance';
+import { useEmployees } from '@/hooks/useEmployees';
 import { attendanceFormSchema } from '@/schemas/attendance';
 import { AttendanceDTO } from '@/services/attendanceService';
-import { format, parseISO } from 'date-fns';
-import { useEmployees } from '@/hooks/useEmployees';
-import { useAttendance } from '@/hooks/useAttendance';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { Attendance } from '@/types/attendance';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
 
 type AttendanceFormValues = {
   employeeId: string;
@@ -35,7 +36,6 @@ type AttendanceFormValues = {
   checkInTime: string;
   checkOutTime: string;
   overtimeHours: number;
-  status?: string;
 };
 
 interface AttendanceFormProps {
@@ -61,7 +61,6 @@ export function AttendanceForm({ attendance, onSuccess }: AttendanceFormProps) {
       checkInTime: attendance?.checkInTime || '',
       checkOutTime: attendance?.checkOutTime || '',
       overtimeHours: attendance?.overtimeHours || 0,
-      status: attendance?.status || 'Present',
     },
   });
 
@@ -73,14 +72,13 @@ export function AttendanceForm({ attendance, onSuccess }: AttendanceFormProps) {
       const dateWithTime = new Date(data.date);
       dateWithTime.setHours(0, 0, 0, 0);
 
-      // Format the data to match API expectations
+      // Format the data to match API expectations (removed status field)
       const formattedData: AttendanceDTO = {
         employeeId: data.employeeId,
         date: dateWithTime.toISOString(),
         checkInTime: data.checkInTime,
         checkOutTime: data.checkOutTime,
         overtimeHours: Number(data.overtimeHours),
-        status: data.status,
       };
 
       console.log('Sending attendance data:', formattedData);
@@ -90,16 +88,8 @@ export function AttendanceForm({ attendance, onSuccess }: AttendanceFormProps) {
           id: attendance.id,
           data: formattedData,
         });
-        toast({
-          title: 'Success',
-          description: 'Attendance record updated successfully',
-        });
       } else {
         await createAttendance.mutateAsync(formattedData);
-        toast({
-          title: 'Success',
-          description: 'Attendance record created successfully',
-        });
       }
 
       onSuccess?.();
@@ -218,34 +208,6 @@ export function AttendanceForm({ attendance, onSuccess }: AttendanceFormProps) {
                     {...field}
                     onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                   />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Status</FormLabel>
-                <FormControl>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    value={field.value}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Present">Present</SelectItem>
-                      <SelectItem value="Absent">Absent</SelectItem>
-                      <SelectItem value="HalfDay">Half Day</SelectItem>
-                      <SelectItem value="OnLeave">On Leave</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </FormControl>
                 <FormMessage />
               </FormItem>

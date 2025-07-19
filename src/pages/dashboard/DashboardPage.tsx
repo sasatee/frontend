@@ -1,29 +1,24 @@
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { employeeService } from '@/services/employeeService';
-import { attendanceService } from '@/services/attendanceService';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Chart } from '@/components/ui/chart';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { useMemo } from 'react';
+import { Separator } from '@/components/ui/separator';
+import { useEmployees } from '@/hooks/useEmployees';
+import { cn } from '@/lib/utils';
+import { getAttendances } from '@/services/attendanceService';
 import type { Attendance } from '@/types/attendance';
+import { useQuery } from '@tanstack/react-query';
 import {
-  Users,
-  UserCheck,
+  ArrowUpRight,
+  BarChart3,
   Clock,
   DollarSign,
-  TrendingUp,
-  TrendingDown,
-  BarChart3,
   PieChart,
-  CalendarDays,
-  Briefcase,
-  BadgePercent,
-  ArrowUpRight,
+  TrendingDown,
+  UserCheck,
+  Users
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useEmployees } from '@/hooks/useEmployees';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
+import { useMemo } from 'react';
 
 const DashboardPage = () => {
   // Fetch all required data
@@ -34,7 +29,7 @@ const DashboardPage = () => {
 
   const { data: attendances = [], isLoading: isLoadingAttendance } = useQuery<Attendance[]>({
     queryKey: ['attendances'],
-    queryFn: () => attendanceService.getAttendances(),
+    queryFn: () => getAttendances(),
   });
 
   // Calculate employee statistics

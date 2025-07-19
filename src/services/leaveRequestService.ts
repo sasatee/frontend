@@ -1,16 +1,8 @@
 import { PaginationParams } from '@/hooks/usePaginatedData';
 import axios from '@/lib/axios';
-import { retryOperation, showErrorToast } from '@/lib/error-handler';
+import { getErrorMessage, retryOperation, showErrorToast } from '@/lib/error-handler';
 import { sanitizeObject } from '@/lib/utils';
 import { CreateLeaveRequestDto, LeaveRequest, UpdateLeaveRequestDto } from '@/types/leaveRequest';
-
-// Type for handling potential data wrapped in an object
-interface LeaveRequestResponseWrapper {
-  isSuccess?: boolean;
-  message?: string;
-  result?: LeaveRequest[] | LeaveRequest;
-  [key: string]: any;
-}
 
 export class LeaveRequestService {
   private readonly headers = {
@@ -27,9 +19,9 @@ export class LeaveRequestService {
     try {
       return await retryOperation(
         async () => {
-          const response = await axios.get<LeaveRequestResponseWrapper>('/api/LeaveRequests');
+          const response = await axios.get<LeaveRequest[]>('/api/LeaveRequests');
 
-          // Process the API response
+          // The API returns a direct array of LeaveRequest objects
           let leaveRequests: LeaveRequest[] = [];
 
           if (!response.data) {
@@ -40,13 +32,15 @@ export class LeaveRequestService {
           if (Array.isArray(response.data)) {
             leaveRequests = response.data;
           } else if (typeof response.data === 'object' && response.data !== null) {
-            if (response.data.result && Array.isArray(response.data.result)) {
-              leaveRequests = response.data.result;
-            } else if (response.data.result && typeof response.data.result === 'object') {
-              leaveRequests = [response.data.result as LeaveRequest];
+            // Handle wrapped response if needed
+            const data = response.data as any;
+            if (data.result && Array.isArray(data.result)) {
+              leaveRequests = data.result;
+            } else if (data.result && typeof data.result === 'object') {
+              leaveRequests = [data.result as LeaveRequest];
             } else {
               // Try to find an array property
-              for (const [key, value] of Object.entries(response.data)) {
+              for (const [key, value] of Object.entries(data)) {
                 if (Array.isArray(value)) {
                   leaveRequests = value;
                   break;
@@ -60,8 +54,8 @@ export class LeaveRequestService {
             const searchLower = params.search.toLowerCase();
             leaveRequests = leaveRequests.filter(
               (request) =>
-                request.leaveTypeName.toLowerCase().includes(searchLower) ||
-                request.requestComments.toLowerCase().includes(searchLower)
+                (request.leaveTypeName?.toLowerCase() || '').includes(searchLower) ||
+                (request.requestComments?.toLowerCase() || '').includes(searchLower)
             );
           }
 
@@ -123,9 +117,7 @@ export class LeaveRequestService {
     try {
       return await retryOperation(
         async () => {
-          const response = await axios.get<LeaveRequestResponseWrapper>(
-            '/api/LeaveRequests/GetMyLeaves'
-          );
+          const response = await axios.get<LeaveRequest[]>('/api/LeaveRequests/GetMyLeaves');
 
           let leaveRequests: LeaveRequest[] = [];
 
@@ -135,8 +127,11 @@ export class LeaveRequestService {
 
           if (Array.isArray(response.data)) {
             leaveRequests = response.data;
-          } else if (response.data.result && Array.isArray(response.data.result)) {
-            leaveRequests = response.data.result;
+          } else {
+            const data = response.data as any;
+            if (data.result && Array.isArray(data.result)) {
+              leaveRequests = data.result;
+            }
           }
 
           return leaveRequests;
@@ -162,22 +157,19 @@ export class LeaveRequestService {
       const sanitizedData = sanitizeObject(leaveRequest);
 
       // Call API
-      const response = await axios.post<LeaveRequestResponseWrapper>(
-        '/api/LeaveRequests',
-        sanitizedData
-      );
+      const response = await axios.post<LeaveRequest>('/api/LeaveRequests', sanitizedData);
 
       // Extract leave request from response
       let createdRequest: LeaveRequest;
 
-      if (response.data.result) {
-        createdRequest = response.data.result as LeaveRequest;
+      if (response.data) {
+        createdRequest = response.data;
       } else {
         // If the API doesn't return the created request, create one from request data
         createdRequest = {
           id: '',
           ...sanitizedData,
-          approved: false,
+          approved: null,
           cancelled: false,
           leaveTypeName: '',
         };
@@ -185,8 +177,8 @@ export class LeaveRequestService {
 
       return createdRequest;
     } catch (error) {
-      const errorDetails = showErrorToast(error, 'creating leave request');
-      throw new Error(errorDetails.message);
+      showErrorToast(error, 'creating leave request');
+      throw new Error(getErrorMessage(error, 'creating leave request'));
     }
   }
 
@@ -202,31 +194,29 @@ export class LeaveRequestService {
       const sanitizedData = sanitizeObject(leaveRequest);
 
       // Call API
-      const response = await axios.put<LeaveRequestResponseWrapper>(
-        `/api/LeaveRequests/${id}`,
-        sanitizedData
-      );
+      const response = await axios.put<LeaveRequest>(`/api/LeaveRequests/${id}`, sanitizedData);
 
       // Extract updated request from response
       let updatedRequest: LeaveRequest;
 
-      if (response.data.result) {
-        updatedRequest = response.data.result as LeaveRequest;
+      if (response.data) {
+        updatedRequest = response.data;
       } else {
         // If the API doesn't return the updated request, create one from request data
         updatedRequest = {
           id,
           ...sanitizedData,
-          approved: false,
+          approved: null,
           cancelled: false,
           leaveTypeName: '',
+          requestingEmployeeId: '',
         };
       }
 
       return updatedRequest;
     } catch (error) {
-      const errorDetails = showErrorToast(error, 'updating leave request');
-      throw new Error(errorDetails.message);
+      showErrorToast(error, 'updating leave request');
+      throw new Error(getErrorMessage(error, 'updating leave request'));
     }
   }
 
@@ -241,11 +231,30 @@ export class LeaveRequestService {
         params: { approved },
       });
     } catch (error) {
-      const errorDetails = showErrorToast(
+      showErrorToast(
         error,
         `${approved ? 'approving' : 'rejecting'} leave request`
       );
-      throw new Error(errorDetails.message);
+      throw new Error(getErrorMessage(error, `${approved ? 'approving' : 'rejecting'} leave request`));
+    }
+  }
+
+  /**
+   * Cancel a leave request
+   * @param id Leave request ID
+   * @param cancel Whether to cancel the request
+   */
+  async cancelLeaveRequest(id: string, cancel: boolean): Promise<void> {
+    try {
+      await axios.put(`/api/LeaveRequests/${id}/cancel`, null, {
+        params: { cancel },
+      });
+    } catch (error) {
+      showErrorToast(
+        error,
+        `${cancel ? 'cancelling' : 'uncancelling'} leave request`
+      );
+      throw new Error(getErrorMessage(error, `${cancel ? 'cancelling' : 'uncancelling'} leave request`));
     }
   }
 
@@ -257,8 +266,8 @@ export class LeaveRequestService {
     try {
       await axios.delete(`/api/LeaveRequests/${id}`);
     } catch (error) {
-      const errorDetails = showErrorToast(error, 'deleting leave request');
-      throw new Error(errorDetails.message);
+      showErrorToast(error, 'deleting leave request');
+      throw new Error(getErrorMessage(error, 'deleting leave request'));
     }
   }
 }
@@ -280,5 +289,8 @@ export const updateLeaveRequest = (id: string, leaveRequest: UpdateLeaveRequestD
 
 export const approveLeaveRequest = (id: string, approved: boolean) =>
   leaveRequestService.approveLeaveRequest(id, approved);
+
+export const cancelLeaveRequest = (id: string, cancel: boolean) =>
+  leaveRequestService.cancelLeaveRequest(id, cancel);
 
 export const deleteLeaveRequest = (id: string) => leaveRequestService.deleteLeaveRequest(id);

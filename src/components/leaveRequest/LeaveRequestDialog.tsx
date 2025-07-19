@@ -25,14 +25,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { useAuth } from '@/hooks/useAuth';
 import { useCurrentEmployeeId } from '@/hooks/useCurrentEmployeeId';
+import { useMyLeaveBalance } from '@/hooks/useLeaveBalance';
 import { cn } from '@/lib/utils';
+import { createLeaveRequestSchema } from '@/schemas/leaveRequest';
 import { CreateLeaveRequestDto, LeaveRequest } from '@/types/leaveRequest';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
+import { LeaveBalanceDisplay } from './LeaveBalanceDisplay';
 
 interface LeaveRequestDialogProps {
   open: boolean;
@@ -49,50 +52,89 @@ export default function LeaveRequestDialog({
   leaveRequest,
   leaveTypes,
 }: LeaveRequestDialogProps) {
-  const { user } = useAuth();
   const { data: currentEmployeeId, isLoading: isLoadingEmployeeId } = useCurrentEmployeeId();
+  const currentYear = new Date().getFullYear();
+
+  // Get leave balance data for validation
+  const { data: leaveBalance } = useMyLeaveBalance(
+    typeof currentEmployeeId === 'string' ? currentEmployeeId : '',
+    currentYear
+  );
+
+  // Process leave balance data for validation
+  const balanceData = useMemo(() => {
+    if (!leaveBalance) return [];
+
+    if (Array.isArray(leaveBalance)) {
+      return leaveBalance;
+    } else if (leaveBalance && typeof leaveBalance === 'object' && 'balances' in leaveBalance && Array.isArray((leaveBalance as any).balances)) {
+      return (leaveBalance as any).balances;
+    } else if (leaveBalance && typeof leaveBalance === 'object' && 'leaveTypeId' in leaveBalance) {
+      return [leaveBalance];
+    }
+
+    return [];
+  }, [leaveBalance]);
+
+  // Create dynamic schema with real leave balance data
+  const dynamicSchema = useMemo(() => {
+    return createLeaveRequestSchema(balanceData);
+  }, [balanceData]);
 
   const form = useForm<CreateLeaveRequestDto>({
+    resolver: zodResolver(dynamicSchema),
     defaultValues: {
       startDate: '',
       endDate: '',
       leaveTypeId: '',
       requestComments: '',
+      requestingEmployeeId: '',
     },
   });
 
+  // Watch form values for leave balance display
+  const watchedValues = form.watch();
+  const { leaveTypeId, startDate, endDate } = watchedValues;
+
   useEffect(() => {
     if (leaveRequest) {
+      // For editing, don't include requestingEmployeeId
       form.reset({
         startDate: leaveRequest.startDate,
         endDate: leaveRequest.endDate,
         leaveTypeId: leaveRequest.leaveTypeId,
-        requestComments: leaveRequest.requestComments,
+        requestComments: leaveRequest.requestComments || '',
+        requestingEmployeeId: leaveRequest.requestingEmployeeId,
       });
     } else {
+      // For new requests, include requestingEmployeeId when available
       form.reset({
         startDate: '',
         endDate: '',
         leaveTypeId: '',
         requestComments: '',
+        requestingEmployeeId: '',
       });
     }
   }, [leaveRequest, form]);
 
-  // Set the requestingEmployeeId when it becomes available
+  // Set the requestingEmployeeId only for new requests when it becomes available
   useEffect(() => {
-    if (currentEmployeeId && typeof currentEmployeeId === 'string') {
+    if (!leaveRequest && currentEmployeeId && typeof currentEmployeeId === 'string') {
       form.setValue('requestingEmployeeId', currentEmployeeId);
     }
-  }, [currentEmployeeId, form]);
+  }, [currentEmployeeId, form, leaveRequest]);
 
   const handleSubmit = async (values: CreateLeaveRequestDto) => {
     try {
-      // Ensure requestingEmployeeId is included
-      const submitValues = {
-        ...values,
-        requestingEmployeeId: currentEmployeeId && typeof currentEmployeeId === 'string' ? currentEmployeeId : '',
-      };
+      // For new requests, ensure requestingEmployeeId is included
+      const submitValues = leaveRequest
+        ? values // For editing, use the values as is
+        : {
+          ...values,
+          requestingEmployeeId: currentEmployeeId && typeof currentEmployeeId === 'string' ? currentEmployeeId : '',
+        };
+
       await onSubmit(submitValues);
       onOpenChange(false);
       form.reset();
@@ -103,15 +145,27 @@ export default function LeaveRequestDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{leaveRequest ? 'Edit Leave Request' : 'New Leave Request'}</DialogTitle>
+          <DialogTitle>
+            {leaveRequest ? 'Edit Leave Request' : 'Create Leave Request'}
+          </DialogTitle>
           <DialogDescription>
             {leaveRequest
-              ? 'Edit your leave request details below'
-              : 'Create a new leave request by filling out the form below'}
+              ? 'Make changes to your leave request here.'
+              : 'Fill in the details for your leave request.'}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Show leave balance information */}
+        {!leaveRequest && (
+          <LeaveBalanceDisplay
+            selectedLeaveTypeId={leaveTypeId}
+            startDate={startDate}
+            endDate={endDate}
+          />
+        )}
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <FormField
@@ -123,7 +177,7 @@ export default function LeaveRequestDialog({
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a leave type" />
+                        <SelectValue placeholder="Select leave type" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -149,7 +203,7 @@ export default function LeaveRequestDialog({
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button
-                          variant="outline"
+                          variant={'outline'}
                           className={cn(
                             'w-full pl-3 text-left font-normal',
                             !field.value && 'text-muted-foreground'
@@ -189,7 +243,7 @@ export default function LeaveRequestDialog({
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button
-                          variant="outline"
+                          variant={'outline'}
                           className={cn(
                             'w-full pl-3 text-left font-normal',
                             !field.value && 'text-muted-foreground'
@@ -209,7 +263,7 @@ export default function LeaveRequestDialog({
                         mode="single"
                         selected={field.value ? new Date(field.value) : undefined}
                         onSelect={(date) => field.onChange(date ? date.toISOString() : '')}
-                        disabled={(date) => date < new Date(form.getValues('startDate'))}
+                        disabled={(date) => date < new Date()}
                         initialFocus
                       />
                     </PopoverContent>
@@ -227,7 +281,7 @@ export default function LeaveRequestDialog({
                   <FormLabel>Comments</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Add any additional comments here..."
+                      placeholder="Please provide a reason for your leave request..."
                       className="resize-none"
                       {...field}
                     />
@@ -237,13 +291,13 @@ export default function LeaveRequestDialog({
               )}
             />
 
-
-
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit">{leaveRequest ? 'Update Request' : 'Submit Request'}</Button>
+              <Button type="submit" disabled={isLoadingEmployeeId}>
+                {leaveRequest ? 'Update' : 'Create'}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

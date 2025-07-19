@@ -1,12 +1,10 @@
 import {
   COMPANY_HOLIDAYS,
   MOCK_EXISTING_LEAVE_REQUESTS,
-  MOCK_LEAVE_BALANCES,
 } from '@/lib/mock-data';
 import * as z from 'zod';
 import {
   advancedDateRangeValidator,
-  businessRuleValidators,
   dateRangeValidator,
   maxConsecutiveLeaveValidator,
   validationMessages
@@ -38,13 +36,40 @@ const hasOverlappingLeaveRequests = (
   });
 };
 
+// Dynamic leave balance validation function
+const createLeaveBalanceValidator = (leaveBalances: any[]) => {
+  return (data: any) => {
+    if (!data.startDate || !data.endDate || !data.leaveTypeId) return true;
+
+    const startDate = new Date(data.startDate);
+    const endDate = new Date(data.endDate);
+    const leaveTypeId = data.leaveTypeId;
+
+    // Calculate number of days requested
+    const daysDifference = Math.ceil(
+      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+    ) + 1;
+
+    // Find the leave balance for the selected leave type
+    const balance = leaveBalances.find((b: any) => b.leaveTypeId === leaveTypeId);
+
+    if (!balance) {
+      // If no balance found, allow the request (could be a new leave type)
+      return true;
+    }
+
+    // Check if requested days are within remaining balance
+    return daysDifference <= balance.remainingDays;
+  };
+};
+
 export const leaveRequestSchema = z
   .object({
     startDate: z.string().min(1, 'Start date is required'),
     endDate: z.string().min(1, 'End date is required'),
     leaveTypeId: z.string().min(1, 'Leave type is required'),
-    requestComments: z.string().optional(),
-    requestingEmployeeId: z.string().optional(),
+    requestComments: z.string().min(1, 'Request comments are required'),
+    requestingEmployeeId: z.string().min(1, 'Employee ID is required'),
     halfDay: z.boolean().optional(),
     halfDayPart: z.enum(['Morning', 'Afternoon']).optional(),
     attachments: z.array(z.any()).optional(),
@@ -108,12 +133,10 @@ export const leaveRequestSchema = z
     }
   )
   .refine(
-    businessRuleValidators.leaveRequestWithinBalance(
-      'startDate',
-      'endDate',
-      'leaveTypeId',
-      MOCK_LEAVE_BALANCES
-    ),
+    (data) => {
+      // This will be replaced with dynamic validation in the component
+      return true;
+    },
     {
       message: 'Insufficient leave balance for the selected leave type and duration',
       path: ['leaveTypeId'],
@@ -218,6 +241,17 @@ export const leaveRequestSchema = z
       path: ['substituteEmployeeId'],
     }
   );
+
+// Function to create a schema with dynamic leave balance validation
+export const createLeaveRequestSchema = (leaveBalances: any[]) => {
+  return leaveRequestSchema.refine(
+    createLeaveBalanceValidator(leaveBalances),
+    {
+      message: 'Insufficient leave balance for the selected leave type and duration',
+      path: ['leaveTypeId'],
+    }
+  );
+};
 
 // Update leave request schema (for editing existing leave requests)
 export const updateLeaveRequestSchema = (leaveRequestId: string) =>

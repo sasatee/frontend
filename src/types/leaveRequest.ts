@@ -3,18 +3,20 @@ export interface LeaveRequest {
   startDate: string;
   endDate: string;
   requestComments?: string;
-  approved: boolean;
+  approved: boolean | null;
   cancelled: boolean;
+  requestingEmployeeId: string;
+  approvedById?: string | null;
   leaveTypeId: string;
-  leaveTypeName: string;
+  leaveTypeName?: string;
 }
 
 export interface CreateLeaveRequestDto {
   startDate: string;
   endDate: string;
   leaveTypeId: string;
-  requestComments?: string;
-  requestingEmployeeId?: string;
+  requestComments: string;
+  requestingEmployeeId: string;
 }
 
 export interface UpdateLeaveRequestDto {

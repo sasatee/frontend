@@ -34,7 +34,7 @@ export function useLeaveRequests(params?: PaginationParams) {
     retryDelay: 1000,
   };
 
-  // Query for fetching all leave requests
+  // Query for fetching all leave requests (admin only)
   const {
     data: leaveRequests,
     isLoading,

@@ -21,7 +21,55 @@ export interface PayrollResponse {
   yearOfService?: number;
 }
 
+export interface PayrollCalculationRequest {
+  employeeId: string;
+  categoryGroupId: string;
+}
+
 export const payrollService = {
+  /**
+   * Calculate payroll for a specific employee (Admin function)
+   * This matches the API endpoint: POST /api/Payroll/{employeeId}?categoryGroupId={categoryGroupId}
+   */
+  calculatePayroll: async (data: PayrollCalculationRequest): Promise<PayrollResponse> => {
+    const { employeeId, categoryGroupId } = data;
+
+    // Validate required fields
+    if (!employeeId || !categoryGroupId) {
+      throw new Error('Employee ID and Category Group ID are required for payroll calculation');
+    }
+
+    console.log('🔄 Calculating Payroll:');
+    console.log('  Employee ID:', employeeId);
+    console.log('  Category Group ID:', categoryGroupId);
+    console.log('  API Endpoint:', `/api/Payroll/${employeeId}?categoryGroupId=${categoryGroupId}`);
+
+    try {
+      const response = await axios.post(
+        `/api/Payroll/${employeeId}?categoryGroupId=${categoryGroupId}`,
+        {} // Empty body as per API specification
+      );
+
+      console.log('✅ Payroll calculation successful:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Payroll calculation failed:', error.response?.data || error.message);
+
+      // Provide more specific error messages
+      if (error.response?.status === 404) {
+        throw new Error('Employee or category group not found');
+      } else if (error.response?.status === 400) {
+        throw new Error('Invalid request data. Please check employee and category group information.');
+      } else if (error.response?.status === 403) {
+        throw new Error('Access denied. Only administrators can calculate payroll.');
+      } else if (error.response?.status === 500) {
+        throw new Error('Server error during payroll calculation. Please try again.');
+      } else {
+        throw new Error(error.response?.data?.message || 'Failed to calculate payroll');
+      }
+    }
+  },
+
   createPayroll: async (data: PayrollDto): Promise<PayrollResponse> => {
     // Extract employeeId for path parameter and send only the required fields in body
     const { employeeId, yearOfService, categoryGroupId } = data;

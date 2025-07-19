@@ -1,16 +1,9 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { ErrorAlert } from '@/components/ErrorAlert';
-import { useToast } from '@/components/ui/use-toast';
-import { Clock, Calendar, CheckCircle, XCircle, AlertCircle, User } from 'lucide-react';
-import { format, parseISO, isToday, differenceInHours } from 'date-fns';
-import { getCurrentUserEmployeeId } from '@/lib/data-access-control';
 import { DataTable } from '@/components/common/DataTable';
-import { ColumnDef } from '@tanstack/react-table';
+import { ErrorAlert } from '@/components/ErrorAlert';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import {
   Select,
   SelectContent,
@@ -18,8 +11,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AttendanceStatusBadge } from '@/components/attendance/AttendanceStatusBadge';
+import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { useEmployeeAttendance } from '@/hooks/useEmployeeAttendance';
+import { ColumnDef } from '@tanstack/react-table';
+import { differenceInHours, format, isValid, parseISO } from 'date-fns';
+import { AlertCircle, Calendar, CheckCircle, Clock } from 'lucide-react';
+import { useState } from 'react';
 
 interface PersonalAttendance {
   id: string;
@@ -36,8 +34,6 @@ export default function MyAttendancePage() {
   const { toast } = useToast();
   const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
 
-  const currentEmployeeId = getCurrentUserEmployeeId();
-
   // Generate month options (current month and 11 previous months)
   const monthOptions = Array.from({ length: 12 }, (_, i) => {
     const date = new Date();
@@ -48,76 +44,106 @@ export default function MyAttendancePage() {
     };
   });
 
-  // Fetch personal attendance
+  // Use the new employee attendance hook
   const {
-    data: attendanceRecords = [],
+    attendanceRecords,
     isLoading,
     error,
     refetch,
-  } = useQuery<PersonalAttendance[]>({
-    queryKey: ['my-attendance', currentEmployeeId, selectedMonth],
-    queryFn: async () => {
-      if (!currentEmployeeId) {
-        throw new Error('Employee ID not found');
-      }
-
-      const response = await fetch(
-        `/api/Attendance/employee/${currentEmployeeId}?month=${selectedMonth}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch attendance records');
-      }
-
-      return response.json();
-    },
-    enabled: !!currentEmployeeId,
-    retry: 2,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    currentEmployeeId,
+  } = useEmployeeAttendance({
+    month: selectedMonth,
   });
 
-  // Filter attendance by selected month
+  // Filter attendance by selected month (already filtered by API, but keeping for consistency)
   const filteredAttendance = attendanceRecords.filter((record) => {
+    if (!record.date || !isValid(parseISO(record.date))) {
+      return false;
+    }
     const recordMonth = format(parseISO(record.date), 'yyyy-MM');
     return recordMonth === selectedMonth;
   });
 
   // Calculate statistics
+  const validAttendanceRecords = filteredAttendance.filter((record) =>
+    record.checkInTime && record.checkOutTime && record.date
+  );
+
   const statistics = {
     totalDays: filteredAttendance.length,
-    presentDays: filteredAttendance.filter((record) => record.checkInTime && record.checkOutTime)
-      .length,
-    absentDays: filteredAttendance.filter((record) => !record.checkInTime || !record.checkOutTime)
-      .length,
-    totalHours: filteredAttendance.reduce((sum, record) => {
-      if (record.checkInTime && record.checkOutTime) {
-        const hours = differenceInHours(
-          parseISO(record.checkOutTime),
-          parseISO(record.checkInTime)
-        );
+    presentDays: validAttendanceRecords.length,
+    absentDays: filteredAttendance.length - validAttendanceRecords.length,
+    totalHours: validAttendanceRecords.reduce((sum, record) => {
+      try {
+        let checkInDate: Date, checkOutDate: Date;
+
+        if (record.checkInTime.includes('T')) {
+          // Full ISO date string
+          if (!isValid(parseISO(record.checkInTime))) return sum;
+          checkInDate = parseISO(record.checkInTime);
+        } else {
+          // Time-only string, combine with date
+          const baseDate = parseISO(record.date);
+          const [hours, minutes, seconds] = record.checkInTime.split(':').map(Number);
+          checkInDate = new Date(baseDate);
+          checkInDate.setHours(hours, minutes, seconds || 0);
+        }
+
+        if (record.checkOutTime.includes('T')) {
+          // Full ISO date string
+          if (!isValid(parseISO(record.checkOutTime))) return sum;
+          checkOutDate = parseISO(record.checkOutTime);
+        } else {
+          // Time-only string, combine with date
+          const baseDate = parseISO(record.date);
+          const [hours, minutes, seconds] = record.checkOutTime.split(':').map(Number);
+          checkOutDate = new Date(baseDate);
+          checkOutDate.setHours(hours, minutes, seconds || 0);
+        }
+
+        const hours = differenceInHours(checkOutDate, checkInDate);
         return sum + hours;
+      } catch (error) {
+        return sum;
       }
-      return sum;
     }, 0),
     overtimeHours: filteredAttendance.reduce((sum, record) => sum + (record.overtimeHours || 0), 0),
-    averageHours:
-      filteredAttendance.length > 0
-        ? filteredAttendance.reduce((sum, record) => {
-            if (record.checkInTime && record.checkOutTime) {
-              const hours = differenceInHours(
-                parseISO(record.checkOutTime),
-                parseISO(record.checkInTime)
-              );
-              return sum + hours;
-            }
-            return sum;
-          }, 0) / filteredAttendance.filter((r) => r.checkInTime && r.checkOutTime).length
-        : 0,
+    averageHours: validAttendanceRecords.length > 0
+      ? validAttendanceRecords.reduce((sum, record) => {
+        try {
+          let checkInDate: Date, checkOutDate: Date;
+
+          if (record.checkInTime.includes('T')) {
+            // Full ISO date string
+            if (!isValid(parseISO(record.checkInTime))) return sum;
+            checkInDate = parseISO(record.checkInTime);
+          } else {
+            // Time-only string, combine with date
+            const baseDate = parseISO(record.date);
+            const [hours, minutes, seconds] = record.checkInTime.split(':').map(Number);
+            checkInDate = new Date(baseDate);
+            checkInDate.setHours(hours, minutes, seconds || 0);
+          }
+
+          if (record.checkOutTime.includes('T')) {
+            // Full ISO date string
+            if (!isValid(parseISO(record.checkOutTime))) return sum;
+            checkOutDate = parseISO(record.checkOutTime);
+          } else {
+            // Time-only string, combine with date
+            const baseDate = parseISO(record.date);
+            const [hours, minutes, seconds] = record.checkOutTime.split(':').map(Number);
+            checkOutDate = new Date(baseDate);
+            checkOutDate.setHours(hours, minutes, seconds || 0);
+          }
+
+          const hours = differenceInHours(checkOutDate, checkInDate);
+          return sum + hours;
+        } catch (error) {
+          return sum;
+        }
+      }, 0) / validAttendanceRecords.length
+      : 0,
   };
 
   // Calculate attendance rate
@@ -130,7 +156,11 @@ export default function MyAttendancePage() {
       accessorKey: 'date',
       header: 'Date',
       cell: ({ row }) => {
-        const date = parseISO(row.getValue('date'));
+        const dateString = row.getValue('date') as string;
+        if (!dateString || !isValid(parseISO(dateString))) {
+          return <span className="text-red-500">Invalid date</span>;
+        }
+        const date = parseISO(dateString);
         return (
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -150,7 +180,10 @@ export default function MyAttendancePage() {
         return (
           <div className="text-sm">
             {checkIn ? (
-              format(parseISO(checkIn), 'HH:mm')
+              // Handle both time-only strings (HH:mm:ss) and full ISO dates
+              checkIn.includes('T') ?
+                (isValid(parseISO(checkIn)) ? format(parseISO(checkIn), 'HH:mm') : <span className="text-red-500">Invalid time</span>) :
+                checkIn // Display time-only strings as-is
             ) : (
               <span className="text-red-500">Not checked in</span>
             )}
@@ -166,7 +199,10 @@ export default function MyAttendancePage() {
         return (
           <div className="text-sm">
             {checkOut ? (
-              format(parseISO(checkOut), 'HH:mm')
+              // Handle both time-only strings (HH:mm:ss) and full ISO dates
+              checkOut.includes('T') ?
+                (isValid(parseISO(checkOut)) ? format(parseISO(checkOut), 'HH:mm') : <span className="text-red-500">Invalid time</span>) :
+                checkOut // Display time-only strings as-is
             ) : (
               <span className="text-red-500">Not checked out</span>
             )}
@@ -180,13 +216,44 @@ export default function MyAttendancePage() {
       cell: ({ row }) => {
         const checkIn = row.getValue('checkInTime') as string;
         const checkOut = row.getValue('checkOutTime') as string;
+        const date = row.getValue('date') as string;
 
-        if (!checkIn || !checkOut) {
+        if (!checkIn || !checkOut || !date) {
           return <span className="text-muted-foreground">N/A</span>;
         }
 
-        const hours = differenceInHours(parseISO(checkOut), parseISO(checkIn));
-        return <div className="font-medium">{hours.toFixed(1)}h</div>;
+        try {
+          let checkInDate: Date, checkOutDate: Date;
+
+          if (checkIn.includes('T')) {
+            // Full ISO date string
+            if (!isValid(parseISO(checkIn))) return <span className="text-muted-foreground">N/A</span>;
+            checkInDate = parseISO(checkIn);
+          } else {
+            // Time-only string, combine with date
+            const baseDate = parseISO(date);
+            const [hours, minutes, seconds] = checkIn.split(':').map(Number);
+            checkInDate = new Date(baseDate);
+            checkInDate.setHours(hours, minutes, seconds || 0);
+          }
+
+          if (checkOut.includes('T')) {
+            // Full ISO date string
+            if (!isValid(parseISO(checkOut))) return <span className="text-muted-foreground">N/A</span>;
+            checkOutDate = parseISO(checkOut);
+          } else {
+            // Time-only string, combine with date
+            const baseDate = parseISO(date);
+            const [hours, minutes, seconds] = checkOut.split(':').map(Number);
+            checkOutDate = new Date(baseDate);
+            checkOutDate.setHours(hours, minutes, seconds || 0);
+          }
+
+          const hours = differenceInHours(checkOutDate, checkInDate);
+          return <div className="font-medium">{hours.toFixed(1)}h</div>;
+        } catch (error) {
+          return <span className="text-muted-foreground">N/A</span>;
+        }
       },
     },
     {
@@ -251,76 +318,68 @@ export default function MyAttendancePage() {
     return (
       <div className="container mx-auto py-10">
         <ErrorAlert
-          title="Error Loading Attendance"
           message={error instanceof Error ? error.message : 'Failed to load attendance records'}
-          onRetry={refetch}
         />
+        <div className="mt-4">
+          <button
+            onClick={() => refetch()}
+            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto space-y-6 py-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Attendance</h1>
-          <p className="text-muted-foreground">View your attendance records and work hours</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Clock className="h-5 w-5 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">
-            {user?.firstName} {user?.lastName}
-          </span>
-        </div>
+    <div className="container mx-auto py-10">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight">My Attendance</h1>
+        <p className="text-muted-foreground mt-2">
+          View and track your daily attendance records
+        </p>
       </div>
 
       {/* Month Filter */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Filter by Month</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="w-full max-w-xs">
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select month" />
-              </SelectTrigger>
-              <SelectContent>
-                {monthOptions.map((month) => (
-                  <SelectItem key={month.value} value={month.value}>
-                    {month.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="mb-6 flex items-center gap-4">
+        <label htmlFor="month-select" className="text-sm font-medium">
+          Select Month:
+        </label>
+        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {monthOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Days</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-blue-600" />
-              <div className="text-2xl font-bold">{statistics.totalDays}</div>
-            </div>
-            <p className="text-xs text-muted-foreground">Working days</p>
+            <div className="text-2xl font-bold">{statistics.totalDays}</div>
+            <p className="text-xs text-muted-foreground">Days in {format(parseISO(`${selectedMonth}-01`), 'MMMM yyyy')}</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Present Days</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <div className="text-2xl font-bold text-green-600">{statistics.presentDays}</div>
-            </div>
+            <div className="text-2xl font-bold text-green-600">{statistics.presentDays}</div>
             <p className="text-xs text-muted-foreground">
               {attendanceRate.toFixed(1)}% attendance rate
             </p>
@@ -328,72 +387,41 @@ export default function MyAttendancePage() {
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
+            <Clock className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-purple-600" />
-              <div className="text-2xl font-bold">{statistics.totalHours.toFixed(1)}h</div>
-            </div>
+            <div className="text-2xl font-bold">{statistics.totalHours.toFixed(1)}h</div>
             <p className="text-xs text-muted-foreground">
-              Avg: {statistics.averageHours.toFixed(1)}h/day
+              Average {statistics.averageHours.toFixed(1)}h per day
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Overtime Hours</CardTitle>
+            <AlertCircle className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-orange-600" />
-              <div className="text-2xl font-bold text-orange-600">
-                {statistics.overtimeHours.toFixed(1)}h
-              </div>
-            </div>
+            <div className="text-2xl font-bold text-orange-600">{statistics.overtimeHours.toFixed(1)}h</div>
             <p className="text-xs text-muted-foreground">Extra hours worked</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Attendance Performance Alert */}
-      {attendanceRate < 80 && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Attendance Notice:</strong> Your attendance rate is {attendanceRate.toFixed(1)}
-            %. Please maintain regular attendance to meet company standards.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Attendance Records Table */}
+      {/* Attendance Table */}
       <Card>
         <CardHeader>
-          <CardTitle>
-            Attendance Records for {format(parseISO(selectedMonth + '-01'), 'MMMM yyyy')}
-          </CardTitle>
+          <CardTitle>Attendance Records</CardTitle>
         </CardHeader>
         <CardContent>
-          {filteredAttendance.length === 0 ? (
-            <div className="py-8 text-center">
-              <Clock className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-medium">No attendance records found</h3>
-              <p className="text-muted-foreground">
-                No attendance records found for the selected month.
-              </p>
-            </div>
-          ) : (
-            <DataTable
-              columns={columns}
-              data={filteredAttendance}
-              searchPlaceholder="Search attendance records..."
-              pagination
-              initialPageSize={10}
-            />
-          )}
+          <DataTable
+            columns={columns}
+            data={filteredAttendance as PersonalAttendance[]}
+            searchPlaceholder="Search attendance records..."
+          />
         </CardContent>
       </Card>
     </div>

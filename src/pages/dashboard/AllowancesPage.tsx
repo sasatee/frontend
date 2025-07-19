@@ -1,19 +1,19 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { BadgeDollarSign, User, Calculator } from 'lucide-react';
-import { DataTable } from '@/components/common/DataTable';
-import { useToast } from '@/components/ui/use-toast';
-import ConfirmationDialog from '@/components/ConfirmationDialog';
-import { ErrorAlert } from '@/components/ErrorAlert';
-import { getAllAllowances, deleteAllowance } from '@/services/allowanceService';
-import { Allowance } from '@/types/allowance';
 import { AllowanceDialog } from '@/components/allowance/AllowanceDialog';
 import { columns } from '@/components/allowance/columns';
-import { useEmployees } from '@/hooks/useEmployees';
-import { useLoading } from '@/contexts/LoadingContext';
-import { showErrorToast } from '@/lib/error-handler';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DataTable } from '@/components/common/DataTable';
+import ConfirmationDialog from '@/components/ConfirmationDialog';
+import { ErrorAlert } from '@/components/ErrorAlert';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/components/ui/use-toast';
+import { useLoading } from '@/contexts/LoadingContext';
+import { useEmployees } from '@/hooks/useEmployees';
+import { showErrorToast } from '@/lib/error-handler';
+import { deleteAllowance, getAllAllowances } from '@/services/allowanceService';
+import { Allowance } from '@/types/allowance';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { BadgeDollarSign, Calculator, User } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
 
 const STALE_TIME = 5 * 60 * 1000; // 5 minutes
 
@@ -39,20 +39,20 @@ const enrichedToAllowance = (enriched: EnrichedAllowance): Allowance => ({
   ...enriched,
   employee: enriched.employee
     ? {
-        ...enriched.employee,
-        email: '',
-        phone: '',
-        address: '',
-        dateOfJoining: '',
-        dateOfLeaving: '',
-        departmentId: '',
-        jobTitleId: '',
-        appUserId: '',
-        nic: '',
-        yearsOfService: 0,
-        currentSalary: 0,
-        categoryGroupId: '',
-      }
+      ...enriched.employee,
+      email: '',
+      phone: '',
+      address: '',
+      dateOfJoining: '',
+      dateOfLeaving: '',
+      departmentId: '',
+      jobTitleId: '',
+      appUserId: '',
+      nic: '',
+      yearsOfService: 0,
+      currentSalary: 0,
+      categoryGroupId: '',
+    }
     : null,
 });
 
@@ -98,10 +98,10 @@ export default function AllowancesPage() {
             ...allowance,
             employee: matchingEmployee
               ? {
-                  id: matchingEmployee.id,
-                  firstName: matchingEmployee.firstName,
-                  lastName: matchingEmployee.lastName,
-                }
+                id: matchingEmployee.id,
+                firstName: matchingEmployee.firstName,
+                lastName: matchingEmployee.lastName,
+              }
               : null,
           };
         });
@@ -198,46 +198,46 @@ export default function AllowancesPage() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30">
+        <Card className="bg-gradient-to-br from-blue-50/80 to-indigo-50/80 dark:from-blue-950/40 dark:to-indigo-950/40 border-blue-200/50 dark:border-blue-800/50 backdrop-blur-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Allowance Amount</CardTitle>
+            <CardTitle className="text-sm font-medium text-blue-800 dark:text-blue-200">Total Allowance Amount</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
               <BadgeDollarSign className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              <div className="text-2xl font-bold">Rs {statistics.totalAmount.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-blue-800 dark:text-blue-200">Rs {statistics.totalAmount.toLocaleString()}</div>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-blue-600/70 dark:text-blue-300/70">
               Across {statistics.totalCount} allowances
             </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30">
+        <Card className="bg-gradient-to-br from-green-50/80 to-emerald-50/80 dark:from-green-950/40 dark:to-emerald-950/40 border-green-200/50 dark:border-green-800/50 backdrop-blur-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Average Allowance</CardTitle>
+            <CardTitle className="text-sm font-medium text-green-800 dark:text-green-200">Average Allowance</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
               <Calculator className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-bold text-green-800 dark:text-green-200">
                 Rs {statistics.average.toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">Per allowance</p>
+            <p className="text-xs text-green-600/70 dark:text-green-300/70">Per allowance</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-purple-50 to-fuchsia-50 dark:from-purple-950/30 dark:to-fuchsia-950/30">
+        <Card className="bg-gradient-to-br from-purple-50/80 to-fuchsia-50/80 dark:from-purple-950/40 dark:to-fuchsia-950/40 border-purple-200/50 dark:border-purple-800/50 backdrop-blur-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Employees with Allowances</CardTitle>
+            <CardTitle className="text-sm font-medium text-purple-800 dark:text-purple-200">Employees with Allowances</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-              <div className="text-2xl font-bold">{statistics.uniqueEmployees}</div>
+              <div className="text-2xl font-bold text-purple-800 dark:text-purple-200">{statistics.uniqueEmployees}</div>
             </div>
-            <p className="text-xs text-muted-foreground">Unique employees</p>
+            <p className="text-xs text-purple-600/70 dark:text-purple-300/70">Unique employees</p>
           </CardContent>
         </Card>
       </div>

@@ -1,8 +1,3 @@
-import React, { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
@@ -14,11 +9,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { createAllowance, updateAllowance } from '@/services/allowanceService';
-import { Allowance, CreateAllowanceDto, UpdateAllowanceDto } from '@/types/allowance';
-import * as z from 'zod';
-import { useEmployees } from '@/hooks/useEmployees';
 import {
   Select,
   SelectContent,
@@ -26,11 +16,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/components/ui/use-toast';
+import { useEmployees } from '@/hooks/useEmployees';
+import { createAllowance, updateAllowance } from '@/services/allowanceService';
+import { Allowance, CreateAllowanceDto, UpdateAllowanceDto } from '@/types/allowance';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
 
 const allowanceSchema = z.object({
   typeName: z.string().min(1, 'Type is required'),
-  customType: z.string().optional(),
   description: z.string().min(1, 'Description is required'),
   effectiveDate: z.string().min(1, 'Effective date is required'),
   remarks: z.string(),
@@ -45,8 +43,6 @@ interface AllowanceDialogProps {
   employeeId?: string;
 }
 
-const ALLOWANCE_TYPES = ['Bonus', 'Transportation', 'Housing', 'Meal', 'Other'] as const;
-
 export function AllowanceDialog({
   open,
   onOpenChange,
@@ -56,13 +52,11 @@ export function AllowanceDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: employees } = useEmployees();
-  const [isCustomType, setIsCustomType] = useState(false);
 
   const form = useForm<z.infer<typeof allowanceSchema>>({
     resolver: zodResolver(allowanceSchema),
     defaultValues: {
       typeName: '',
-      customType: '',
       description: '',
       effectiveDate: new Date().toISOString().split('T')[0],
       remarks: '',
@@ -73,11 +67,8 @@ export function AllowanceDialog({
 
   useEffect(() => {
     if (allowance) {
-      const isOtherType = !ALLOWANCE_TYPES.includes(allowance.typeName as any);
-      setIsCustomType(isOtherType);
       form.reset({
-        typeName: isOtherType ? 'Other' : allowance.typeName,
-        customType: isOtherType ? allowance.typeName : '',
+        typeName: allowance.typeName,
         description: allowance.description,
         effectiveDate: new Date(allowance.effectiveDate).toISOString().split('T')[0],
         remarks: allowance.remarks,
@@ -134,9 +125,9 @@ export function AllowanceDialog({
 
   const onSubmit = async (data: z.infer<typeof allowanceSchema>) => {
     try {
-      // Prepare the submission data with the correct fields based on API structure
+      // Prepare the submission data
       const submissionData = {
-        typeName: isCustomType ? data.customType! : data.typeName,
+        typeName: data.typeName,
         description: data.description,
         effectiveDate: data.effectiveDate,
         remarks: data.remarks,
@@ -167,14 +158,12 @@ export function AllowanceDialog({
       // Reset form when dialog closes
       form.reset({
         typeName: '',
-        customType: '',
         description: '',
         effectiveDate: new Date().toISOString().split('T')[0],
         remarks: '',
         employeeId: employeeId || '',
         amount: 0,
       });
-      setIsCustomType(false);
     }
     onOpenChange(newOpenState);
   };
@@ -194,45 +183,12 @@ export function AllowanceDialog({
                 <FormItem>
                   <FormLabel>Type</FormLabel>
                   <FormControl>
-                    <Select
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                        setIsCustomType(value === 'Other');
-                      }}
-                      value={field.value}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ALLOWANCE_TYPES.map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {type}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Input {...field} placeholder="Enter allowance type (e.g., Bonus, Transportation, etc.)" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
-            {isCustomType && (
-              <FormField
-                control={form.control}
-                name="customType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Custom Type</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Enter custom allowance type" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
 
             <FormField
               control={form.control}

@@ -1,5 +1,5 @@
-import { ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { ReactNode } from 'react';
 
 interface RoleBasedUIProps {
   children: ReactNode;
@@ -13,13 +13,13 @@ interface RoleBasedUIProps {
  * Component for conditional rendering based on user roles
  * Shows children only if user has the required roles
  */
-export const RoleBasedUI = ({
+function RoleBasedUI({
   children,
   requiredRoles,
   requireAll = false,
   fallback = null,
   showForUnauthenticated = false,
-}: RoleBasedUIProps) => {
+}: RoleBasedUIProps) {
   const { isAuthenticated, hasAnyRole, hasAllRoles } = useAuth();
 
   // If user is not authenticated
@@ -31,83 +31,89 @@ export const RoleBasedUI = ({
   const hasPermission = requireAll ? hasAllRoles(requiredRoles) : hasAnyRole(requiredRoles);
 
   return hasPermission ? <>{children}</> : <>{fallback}</>;
-};
+}
 
 // Convenience components for common role checks
-export const AdminOnly = ({
+function AdminOnly({
   children,
   fallback = null,
 }: {
   children: ReactNode;
   fallback?: ReactNode;
-}) => (
-  <RoleBasedUI requiredRoles={['ADMIN']} fallback={fallback}>
-    {children}
-  </RoleBasedUI>
-);
+}) {
+  return (
+    <RoleBasedUI requiredRoles={['ADMIN']} fallback={fallback}>
+      {children}
+    </RoleBasedUI>
+  );
+}
 
-export const EmployeeOnly = ({
+function EmployeeOnly({
   children,
   fallback = null,
 }: {
   children: ReactNode;
   fallback?: ReactNode;
-}) => (
-  <RoleBasedUI requiredRoles={['EMPLOYEE']} fallback={fallback}>
-    {children}
-  </RoleBasedUI>
-);
+}) {
+  return (
+    <RoleBasedUI requiredRoles={['EMPLOYEE']} fallback={fallback}>
+      {children}
+    </RoleBasedUI>
+  );
+}
 
-export const EmployeeOrAdmin = ({
+function EmployeeOrAdmin({
   children,
   fallback = null,
 }: {
   children: ReactNode;
   fallback?: ReactNode;
-}) => (
-  <RoleBasedUI requiredRoles={['EMPLOYEE', 'ADMIN']} requireAll={false} fallback={fallback}>
-    {children}
-  </RoleBasedUI>
-);
+}) {
+  return (
+    <RoleBasedUI requiredRoles={['EMPLOYEE', 'ADMIN']} requireAll={false} fallback={fallback}>
+      {children}
+    </RoleBasedUI>
+  );
+}
 
-export const AuthenticatedOnly = ({
+function AuthenticatedOnly({
   children,
   fallback = null,
 }: {
   children: ReactNode;
   fallback?: ReactNode;
-}) => {
+}) {
   const { isAuthenticated } = useAuth();
   return isAuthenticated ? <>{children}</> : <>{fallback}</>;
-};
+}
 
-export const UnauthenticatedOnly = ({
+function UnauthenticatedOnly({
   children,
   fallback = null,
 }: {
   children: ReactNode;
   fallback?: ReactNode;
-}) => {
+}) {
   const { isAuthenticated } = useAuth();
   return !isAuthenticated ? <>{children}</> : <>{fallback}</>;
-};
+}
 
 // Higher-order component for role-based rendering
-export const withRoleCheck = (
+function withRoleCheck(
   Component: React.ComponentType<any>,
   requiredRoles: string[],
   requireAll = false,
   fallback?: ReactNode
-) => {
+) {
   return (props: any) => (
     <RoleBasedUI requiredRoles={requiredRoles} requireAll={requireAll} fallback={fallback}>
       <Component {...props} />
     </RoleBasedUI>
   );
-};
+}
 
 // Hook for role-based logic in components
-export const useRoleBasedAccess = () => {
+function useRoleBasedAccess() {
   const { isAuthenticated, hasRole, hasAnyRole, hasAllRoles, isAdmin, isEmployee, getUserRoles } =
     useAuth();
 
@@ -124,4 +130,11 @@ export const useRoleBasedAccess = () => {
       return requireAll ? hasAllRoles(roles) : hasAnyRole(roles);
     },
   };
+}
+
+// Export all components and hooks
+export {
+  AdminOnly, AuthenticatedOnly, EmployeeOnly,
+  EmployeeOrAdmin, RoleBasedUI, UnauthenticatedOnly, useRoleBasedAccess, withRoleCheck
 };
+

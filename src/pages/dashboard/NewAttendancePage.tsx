@@ -1,8 +1,3 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -13,10 +8,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useToast } from '@/components/ui/use-toast';
-import { attendanceService } from '@/services/attendanceService';
-import { Loader2 } from 'lucide-react';
-import { useEmployees } from '@/hooks/useEmployees';
 import {
   Select,
   SelectContent,
@@ -24,7 +15,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useToast } from '@/components/ui/use-toast';
+import { useEmployees } from '@/hooks/useEmployees';
+import { createAttendance } from '@/services/attendanceService';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Loader2 } from 'lucide-react';
+import React from 'react';
+import { useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
+import * as z from 'zod';
 
 const formSchema = z
   .object({
@@ -79,7 +79,7 @@ export default function NewAttendancePage() {
   // Create attendance mutation
   const createAttendanceMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      return await attendanceService.createAttendance(data);
+      return await createAttendance(data);
     },
     onSuccess: () => {
       toast({
