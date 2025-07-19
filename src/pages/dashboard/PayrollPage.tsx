@@ -11,8 +11,8 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useToast } from '@/components/ui/use-toast';
 import { usePayroll } from '@/hooks/usePayroll';
 import { usePayrollWithEmployees } from '@/hooks/usePayrollWithEmployees';
-import { Calculator, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { Calculator, DollarSign, Plus, TrendingUp, Users } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 export function PayrollPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -40,6 +40,44 @@ export function PayrollPage() {
   const columns = getPayrollColumns({
     onDelete: (id) => setDeletePayrollId(id),
   });
+
+  // Calculate summary statistics
+  const summaryStats = useMemo(() => {
+    if (!enrichedPayrolls || enrichedPayrolls.length === 0) {
+      return {
+        totalPayrolls: 0,
+        totalNetPay: 0,
+        averageNetPay: 0,
+        totalEmployees: 0,
+      };
+    }
+
+    const totalNetPay = enrichedPayrolls.reduce((sum, payroll) => sum + (payroll.netPay || 0), 0);
+    const uniqueEmployees = new Set(enrichedPayrolls.map(p => p.employeeId)).size;
+
+    return {
+      totalPayrolls: enrichedPayrolls.length,
+      totalNetPay,
+      averageNetPay: totalNetPay / enrichedPayrolls.length,
+      totalEmployees: uniqueEmployees,
+    };
+  }, [enrichedPayrolls]);
+
+  // Filterable columns
+  const filterableColumns = useMemo(() => [
+    {
+      id: 'employee',
+      title: 'Employee',
+      options: enrichedPayrolls?.map((payroll) => ({
+        label: payroll.employee?.firstName && payroll.employee?.lastName
+          ? `${payroll.employee.firstName} ${payroll.employee.lastName}`
+          : 'Unknown Employee',
+        value: payroll.employee?.firstName && payroll.employee?.lastName
+          ? `${payroll.employee.firstName} ${payroll.employee.lastName}`
+          : 'Unknown Employee',
+      })) || [],
+    },
+  ], [enrichedPayrolls]);
 
   if (isLoadingEnriched) {
     return (
@@ -73,6 +111,50 @@ export function PayrollPage() {
             Create Payroll
           </Button>
         </div>
+      </div>
+
+      {/* Summary Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Payrolls</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{summaryStats.totalPayrolls}</div>
+            <p className="text-xs text-muted-foreground">Payroll records</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Net Pay</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">${summaryStats.totalNetPay.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">Combined net pay</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Average Net Pay</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">${summaryStats.averageNetPay.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">Per payroll record</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Employees</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{summaryStats.totalEmployees}</div>
+            <p className="text-xs text-muted-foreground">With payroll records</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Admin Information Card */}
@@ -114,13 +196,35 @@ export function PayrollPage() {
         </Card>
       </AdminOnly>
 
-      <div className="mt-8">
-        <DataTable
-          columns={columns}
-          data={enrichedPayrolls || []}
-          searchPlaceholder="Search payrolls..."
-        />
-      </div>
+      <DataTable
+        columns={columns}
+        data={enrichedPayrolls || []}
+        isLoading={isLoadingEnriched}
+        searchPlaceholder="Search by employee name, ID, or pay amount..."
+        title="Payroll Records"
+        subtitle="View and manage employee payroll information"
+        filterableColumns={filterableColumns}
+        actions={
+          <div className="flex gap-2">
+            <AdminOnly>
+              <Button
+                onClick={() => setIsCalculationDialogOpen(true)}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <Calculator className="mr-2 h-4 w-4" />
+                Calculate Payroll
+              </Button>
+            </AdminOnly>
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Payroll
+            </Button>
+          </div>
+        }
+        initialSortColumn="payDate"
+        initialSortDirection="desc"
+        emptyMessage="No payroll records found. Create your first payroll record to get started."
+      />
 
       {/* Payroll Calculation Dialog */}
       <PayrollCalculationDialog

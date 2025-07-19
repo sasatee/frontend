@@ -2,98 +2,104 @@ import { DataTable } from '@/components/common/DataTable';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
 import { getLeaveRequestColumns } from '@/components/leaveRequest/columns';
 import LeaveRequestDialog from '@/components/leaveRequest/LeaveRequestDialog';
-import { LoadingOverlay } from '@/components/LoadingOverlay';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
+import { useLoading } from '@/contexts/LoadingContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useLeaveRequests } from '@/hooks/useLeaveRequests';
 import { useLeaveTypes } from '@/hooks/useLeaveTypes';
 import { LeaveRequestFormValues } from '@/schemas/leaveRequest';
 import { cancelLeaveRequest } from '@/services/leaveRequestService';
 import { LeaveRequest } from '@/types/leaveRequest';
-import { Plus } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { FileText, Plus } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
-// Memoized empty state component
 const EmptyState = ({ onCreateClick }: { onCreateClick: () => void }) => (
-  <div className="flex h-[400px] flex-col items-center justify-center space-y-4">
-    <div className="text-center">
-      <h3 className="text-lg font-medium">No leave requests found</h3>
-      <p className="text-sm text-muted-foreground">Get started by creating a new leave request</p>
-    </div>
-    <Button onClick={onCreateClick}>
+  <Card className="flex h-[400px] flex-col items-center justify-center">
+    <FileText className="h-12 w-12 text-muted-foreground/50" />
+    <h3 className="mt-4 text-lg font-medium">No leave requests found</h3>
+    <p className="text-sm text-muted-foreground">
+      Create your first leave request to get started
+    </p>
+    <Button className="mt-4" onClick={onCreateClick}>
       <Plus className="mr-2 h-4 w-4" />
-      New Leave Request
+      Create Leave Request
     </Button>
-  </div>
+  </Card>
 );
 
-// Memoized page header component
 const PageHeader = ({ onCreateClick, isAdmin }: { onCreateClick: () => void; isAdmin: boolean }) => (
-  <div className="flex items-center justify-between">
-    <div>
-      <h1 className="text-3xl font-bold tracking-tight">
-        {isAdmin ? 'Leave Requests Management' : 'My Leave Requests'}
-      </h1>
-      <p className="text-muted-foreground">
-        {isAdmin
-          ? 'Manage and approve employee leave requests'
-          : 'View and manage your leave requests'
-        }
-      </p>
+  <div className="flex flex-col space-y-2">
+    <div className="flex items-center justify-between">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">
+          {isAdmin ? 'Leave Requests' : 'My Leave Requests'}
+        </h1>
+        <p className="text-muted-foreground">
+          {isAdmin
+            ? 'Manage and approve employee leave requests'
+            : 'View and manage your leave requests'
+          }
+        </p>
+      </div>
+      <Button onClick={onCreateClick}>
+        <Plus className="mr-2 h-4 w-4" />
+        Create Request
+      </Button>
     </div>
-    <Button onClick={onCreateClick}>
-      <Plus className="mr-2 h-4 w-4" />
-      New Leave Request
-    </Button>
   </div>
 );
 
 export default function LeaveRequestsPage() {
-  // State management
-  const [searchTerm, setSearchTerm] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const { toast } = useToast();
-  const { user, isAdmin } = useAuth();
 
-  // Data fetching
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { withLoading } = useLoading();
+  const { user } = useAuth();
+
+  // Fetch data
   const {
-    leaveRequests = [],
-    myLeaveRequests = [],
+    leaveRequests,
+    myLeaveRequests,
     isLoading,
     createRequest,
     updateRequest,
-    approveRequest,
     deleteRequest,
+    approveRequest,
   } = useLeaveRequests();
+
   const { data: leaveTypes = [] } = useLeaveTypes();
 
+  // Check if user is admin
+  const isAdmin = () => {
+    return user?.roles?.some((role) => role === 'Admin' || role === 'Manager') || false;
+  };
+
   // Determine which data to use based on user role
-  const allRequests = isAdmin() ? leaveRequests : myLeaveRequests;
+  const allRequests = isAdmin() ? (leaveRequests || []) : (myLeaveRequests || []);
 
-  // Memoized handlers
-  const handleEdit = useCallback((request: LeaveRequest) => {
-    setSelectedRequest(request);
-    setIsEditDialogOpen(true);
-  }, []);
+  // Handlers
+  const handleEdit = useCallback(
+    (request: LeaveRequest) => {
+      setSelectedRequest(request);
+      setIsEditDialogOpen(true);
+    },
+    []
+  );
 
-  const handleDelete = useCallback((request: LeaveRequest) => {
-    setSelectedRequest(request);
-    setIsDeleteDialogOpen(true);
-  }, []);
+  const handleDelete = useCallback(
+    (request: LeaveRequest) => {
+      setSelectedRequest(request);
+      setIsDeleteDialogOpen(true);
+    },
+    []
+  );
 
   const handleApprove = useCallback(
     async (request: LeaveRequest, approved: boolean) => {
@@ -169,41 +175,6 @@ export default function LeaveRequestsPage() {
     }
   }, [selectedRequest, deleteRequest, toast]);
 
-  const handlePageChange = useCallback((page: number) => {
-    setCurrentPage(page);
-  }, []);
-
-  const handlePageSizeChange = useCallback((size: number) => {
-    setPageSize(size);
-    setCurrentPage(1);
-  }, []);
-
-  // Memoized filtered and paginated data
-  const filteredRequests = useMemo(() => {
-    if (!searchTerm) return allRequests;
-
-    const searchLower = searchTerm.toLowerCase();
-    return allRequests.filter(
-      (request) =>
-        (request.leaveTypeName?.toLowerCase() || '').includes(searchLower) ||
-        (request.requestComments?.toLowerCase() || '').includes(searchLower)
-    );
-  }, [allRequests, searchTerm]);
-
-  const paginationInfo = useMemo(() => {
-    const totalItems = filteredRequests.length;
-    const start = (currentPage - 1) * pageSize;
-    const end = start + pageSize;
-    const paginatedRequests = filteredRequests.slice(start, end);
-
-    return {
-      totalItems,
-      paginatedRequests,
-      currentPage,
-      totalPages: Math.ceil(totalItems / pageSize),
-    };
-  }, [filteredRequests, currentPage, pageSize]);
-
   // Memoized columns
   const columns = useMemo(
     () =>
@@ -217,56 +188,57 @@ export default function LeaveRequestsPage() {
     [handleEdit, handleDelete, handleApprove, handleCancel]
   );
 
+  // Filterable columns
+  const filterableColumns = useMemo(() => [
+    {
+      id: 'leaveTypeName',
+      title: 'Leave Type',
+      options: leaveTypes.map((type) => ({
+        label: type.name,
+        value: type.name,
+      })),
+    },
+    {
+      id: 'status',
+      title: 'Status',
+      options: [
+        { label: 'Pending', value: 'Pending' },
+        { label: 'Approved', value: 'Approved' },
+        { label: 'Rejected', value: 'Rejected' },
+        { label: 'Cancelled', value: 'Cancelled' },
+      ],
+    },
+  ], [leaveTypes]);
+
   return (
     <div className="container mx-auto space-y-6 py-6">
       <PageHeader onCreateClick={() => setIsCreateDialogOpen(true)} isAdmin={isAdmin()} />
 
-      {filteredRequests.length === 0 && !isLoading ? (
+      {allRequests.length === 0 && !isLoading ? (
         <EmptyState onCreateClick={() => setIsCreateDialogOpen(true)} />
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {isAdmin() ? 'Leave Requests' : 'My Leave Requests'}
-            </CardTitle>
-            <CardDescription>
-              {isAdmin()
-                ? 'Manage employee leave requests'
-                : 'View and manage your leave requests'
-              }
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="relative">
-              {isLoading && <LoadingOverlay />}
-              <DataTable
-                columns={columns}
-                data={paginationInfo.paginatedRequests}
-                isLoading={isLoading}
-                searchPlaceholder="Search leave requests..."
-                title={isAdmin() ? 'Leave Requests' : 'My Leave Requests'}
-                subtitle={
-                  isAdmin()
-                    ? 'Manage employee leave requests'
-                    : 'View and manage your leave requests'
-                }
-                initialPageSize={pageSize}
-                pagination={true}
-                tableOptions={{
-                  pageSize,
-                  pageIndex: currentPage - 1,
-                  onPageSizeChange: handlePageSizeChange,
-                  onPageChange: (newPage: number) => handlePageChange(newPage + 1),
-                }}
-              />
-            </div>
-          </CardContent>
-          <CardFooter>
-            <p className="text-sm text-muted-foreground">
-              Total requests: {paginationInfo.totalItems}
-            </p>
-          </CardFooter>
-        </Card>
+        <DataTable
+          columns={columns}
+          data={allRequests}
+          isLoading={isLoading}
+          searchPlaceholder="Search by leave type, comments, or employee name..."
+          title={isAdmin() ? 'Leave Requests' : 'My Leave Requests'}
+          subtitle={
+            isAdmin()
+              ? 'Manage and approve employee leave requests'
+              : 'View and manage your leave requests'
+          }
+          filterableColumns={filterableColumns}
+          actions={
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Request
+            </Button>
+          }
+          initialSortColumn="dateCreated"
+          initialSortDirection="desc"
+          emptyMessage="No leave requests found. Create your first request to get started."
+        />
       )}
 
       {/* Create Leave Request Dialog */}
@@ -293,8 +265,6 @@ export default function LeaveRequestsPage() {
         title="Delete Leave Request"
         description="Are you sure you want to delete this leave request? This action cannot be undone."
         onConfirm={handleDeleteConfirm}
-        confirmText="Delete"
-        variant="destructive"
       />
     </div>
   );

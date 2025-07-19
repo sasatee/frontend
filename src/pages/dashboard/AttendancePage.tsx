@@ -8,52 +8,33 @@ import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
-  CardTitle,
+  CardTitle
 } from '@/components/ui/card';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
+import { DataTableRowActions } from '@/components/ui/data-table-row-actions';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Separator } from '@/components/ui/separator';
-import { Tooltip } from '@/components/ui/tooltip';
 import { useToast } from '@/components/ui/use-toast';
 import { useAttendance } from '@/hooks/useAttendance';
 import { useEmployees } from '@/hooks/useEmployees';
-import { calculateWorkingHours, formatWorkHours } from '@/lib/utils';
+import { formatWorkHours } from '@/lib/utils';
 import { Attendance } from '@/types/attendance';
+import { ColumnDef } from '@tanstack/react-table';
 import { format, isToday, parseISO } from 'date-fns';
-import { Calendar, CalendarDays, Clock, Download, Filter, Plus, Search, User } from 'lucide-react';
-import { useState } from 'react';
+import { Clock, Download, Plus } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function AttendancePage() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [viewMode, setViewMode] = useState<'all' | 'today'>('all');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [attendanceToDelete, setAttendanceToDelete] = useState<Attendance | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
 
   const navigate = useNavigate();
   const { toast } = useToast();
   const location = useLocation();
   const { data: employees } = useEmployees();
   const { data: attendances, isLoading: loading, error, deleteAttendance } = useAttendance();
-
-  const handlePageSizeChange = (size: number) => {
-    setPageSize(size);
-    setCurrentPage(1); // Reset to first page when changing page size
-  };
 
   const handleDelete = async (row: { original: Attendance }) => {
     try {
@@ -75,61 +56,29 @@ export default function AttendancePage() {
   };
 
   // Enhance attendances with employee data
-  const enhancedAttendances = attendances?.map((attendance) => {
-    if (attendance.employee) return attendance;
+  const enhancedAttendances = useMemo(() => {
+    return attendances?.map((attendance) => {
+      if (attendance.employee) return attendance;
 
-    // Find matching employee and enhance the attendance
-    const matchingEmployee = employees?.find((emp) => emp.id === attendance.employeeId);
-    if (matchingEmployee) {
-      return {
-        ...attendance,
-        employee: {
-          id: matchingEmployee.id,
-          firstName: matchingEmployee.firstName,
-          lastName: matchingEmployee.lastName,
-          email: matchingEmployee.email,
-        },
-      };
-    }
-    return attendance;
-  });
-
-  const filteredAttendances = enhancedAttendances?.filter((attendance: Attendance) => {
-    // Filter by view mode (all or today)
-    if (viewMode === 'today' && !isToday(parseISO(attendance.date))) {
-      return false;
-    }
-
-    // Filter by employee name or ID
-    if (searchTerm) {
-      const employeeName = attendance.employee
-        ? `${attendance.employee.firstName} ${attendance.employee.lastName}`.toLowerCase()
-        : '';
-
-      if (
-        !attendance.employeeId.toString().includes(searchTerm) &&
-        !employeeName.includes(searchTerm.toLowerCase())
-      ) {
-        return false;
+      // Find matching employee and enhance the attendance
+      const matchingEmployee = employees?.find((emp) => emp.id === attendance.employeeId);
+      if (matchingEmployee) {
+        return {
+          ...attendance,
+          employee: {
+            id: matchingEmployee.id,
+            firstName: matchingEmployee.firstName,
+            lastName: matchingEmployee.lastName,
+            email: matchingEmployee.email,
+          },
+        };
       }
-    }
-
-    // Filter by date range
-    if (dateFrom || dateTo) {
-      const attendanceDate = new Date(attendance.date);
-      if (dateFrom && attendanceDate < new Date(dateFrom)) {
-        return false;
-      }
-      if (dateTo && attendanceDate > new Date(dateTo)) {
-        return false;
-      }
-    }
-
-    return true;
-  });
+      return attendance;
+    }) || [];
+  }, [attendances, employees]);
 
   const handleExportCSV = () => {
-    if (!filteredAttendances?.length) return;
+    if (!enhancedAttendances?.length) return;
 
     const headers = [
       'Employee Name',
@@ -138,10 +87,11 @@ export default function AttendancePage() {
       'Check In',
       'Check Out',
       'Overtime Hours',
+      'Status',
     ];
     const csvContent = [
       headers.join(','),
-      ...filteredAttendances.map((attendance: Attendance) => {
+      ...enhancedAttendances.map((attendance: Attendance) => {
         const employeeName = attendance.employee
           ? `${attendance.employee.firstName} ${attendance.employee.lastName}`
           : 'Unknown';
@@ -153,6 +103,7 @@ export default function AttendancePage() {
           attendance.checkInTime,
           attendance.checkOutTime,
           attendance.overtimeHours,
+          attendance.status || 'Unknown',
         ].join(',');
       }),
     ].join('\n');
@@ -168,11 +119,11 @@ export default function AttendancePage() {
     document.body.removeChild(link);
   };
 
-  const columns = [
+  const columns: ColumnDef<Attendance>[] = useMemo(() => [
     {
-      id: 'employee',
-      header: 'Employee',
-      cell: ({ row }: { row: { original: Attendance } }) => {
+      accessorKey: 'employee',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Employee" />,
+      cell: ({ row }) => {
         const attendance = row.original;
         const employeeName = attendance.employee
           ? `${attendance.employee.firstName} ${attendance.employee.lastName}`
@@ -186,148 +137,133 @@ export default function AttendancePage() {
             <Avatar className="h-8 w-8">
               <AvatarFallback className="bg-primary/10 text-primary">{initials}</AvatarFallback>
             </Avatar>
-            <div className="font-medium">{employeeName}</div>
+            <div>
+              <div className="font-medium">{employeeName}</div>
+              <div className="text-sm text-muted-foreground">ID: {attendance.employeeId}</div>
+            </div>
           </div>
         );
       },
+      enableSorting: true,
+      enableHiding: true,
     },
     {
-      id: 'date',
-      header: 'Date',
-      cell: ({ row }: { row: { original: Attendance } }) => {
+      accessorKey: 'date',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
+      cell: ({ row }) => {
         const attendance = row.original;
         const date = new Date(attendance.date);
         return (
-          <div className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-muted-foreground" />
-            <span>{format(date, 'MMM dd, yyyy')}</span>
-            {isToday(date) && <Badge variant="outline">Today</Badge>}
+          <div className="flex flex-col">
+            <div className="font-medium">{format(date, 'MMM dd, yyyy')}</div>
+            <div className="text-sm text-muted-foreground">{format(date, 'EEEE')}</div>
           </div>
         );
       },
+      enableSorting: true,
+      enableHiding: true,
     },
     {
-      id: 'checkInTime',
-      header: 'Check In',
-      cell: ({ row }: { row: { original: Attendance } }) => {
+      accessorKey: 'checkInTime',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Check In" />,
+      cell: ({ row }) => {
         const attendance = row.original;
         return (
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-muted-foreground" />
-            <span>{attendance.checkInTime || 'N/A'}</span>
+            <span className="font-mono">{attendance.checkInTime || 'N/A'}</span>
           </div>
         );
       },
+      enableSorting: true,
+      enableHiding: true,
     },
     {
-      id: 'checkOutTime',
-      header: 'Check Out',
-      cell: ({ row }: { row: { original: Attendance } }) => {
+      accessorKey: 'checkOutTime',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Check Out" />,
+      cell: ({ row }) => {
         const attendance = row.original;
         return (
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-muted-foreground" />
-            <span>{attendance.checkOutTime || 'N/A'}</span>
+            <span className="font-mono">{attendance.checkOutTime || 'N/A'}</span>
           </div>
         );
       },
+      enableSorting: true,
+      enableHiding: true,
     },
     {
-      id: 'workHours',
-      header: 'Work Hours',
-      cell: ({ row }: { row: { original: Attendance } }) => {
+      accessorKey: 'overtimeHours',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Overtime" />,
+      cell: ({ row }) => {
         const attendance = row.original;
-        const workHours = calculateWorkingHours(attendance.checkInTime, attendance.checkOutTime);
+        const overtime = attendance.overtimeHours || 0;
         return (
-          <div className="flex items-center gap-2">
-            <span>{formatWorkHours(workHours)}</span>
-          </div>
+          <Badge variant={overtime > 0 ? 'default' : 'secondary'}>
+            {formatWorkHours(overtime)}
+          </Badge>
         );
       },
+      enableSorting: true,
+      enableHiding: true,
     },
     {
-      id: 'overtimeHours',
-      header: 'Overtime',
-      cell: ({ row }: { row: { original: Attendance } }) => {
+      accessorKey: 'status',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => {
         const attendance = row.original;
-        return (
-          <div className="flex items-center gap-2">
-            <span>{attendance.overtimeHours || 0} hrs</span>
-          </div>
-        );
+        return <AttendanceStatusBadge status={attendance.status} />;
       },
-    },
-    {
-      id: 'status',
-      header: 'Status',
-      cell: ({ row }: { row: { original: Attendance } }) => {
-        const attendance = row.original;
-        return (
-          <AttendanceStatusBadge checkInTime={attendance.checkInTime} checkOutTime={attendance.checkOutTime} />
-        );
+      enableSorting: true,
+      enableHiding: true,
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
       },
     },
     {
       id: 'actions',
-      header: '',
-      cell: ({ row }: { row: { original: Attendance } }) => {
+      cell: ({ row }) => {
         return (
-          <div className="flex justify-end">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <span className="sr-only">Open menu</span>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="lucide lucide-more-horizontal"
-                  >
-                    <circle cx="12" cy="12" r="1" />
-                    <circle cx="19" cy="12" r="1" />
-                    <circle cx="5" cy="12" r="1" />
-                  </svg>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => navigate(`/dashboard/attendance/${row.original.id}`)}
-                >
-                  View Details
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setAttendanceToDelete(row.original);
-                    setIsDeleteDialogOpen(true);
-                  }}
-                  className="text-red-600 focus:text-red-600"
-                >
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <DataTableRowActions
+            row={row}
+            onEdit={() => navigate(`/dashboard/attendance/edit/${row.original.id}`)}
+            onDelete={() => {
+              setAttendanceToDelete(row.original);
+              setIsDeleteDialogOpen(true);
+            }}
+            onView={() => navigate(`/dashboard/attendance/${row.original.id}`)}
+          />
         );
       },
     },
-  ];
+  ], [navigate]);
+
+  // Filterable columns for status
+  const filterableColumns = useMemo(() => [
+    {
+      id: 'status',
+      title: 'Status',
+      options: [
+        { label: 'Present', value: 'Present' },
+        { label: 'Absent', value: 'Absent' },
+        { label: 'Late', value: 'Late' },
+        { label: 'Half Day', value: 'Half Day' },
+        { label: 'Leave', value: 'Leave' },
+      ],
+    },
+  ], []);
 
   if (loading) {
     return (
-      <div className="flex h-[70vh] items-center justify-center">
-        <Card className="w-[350px]">
-          <CardHeader>
-            <CardTitle className="text-center">Loading Attendance Records</CardTitle>
-            <CardDescription className="text-center">
-              Please wait while we fetch the data
-            </CardDescription>
-          </CardHeader>
+      <div className="space-y-6">
+        <div className="flex flex-col space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight">Attendance Records</h1>
+          <p className="text-muted-foreground">
+            Track and manage employee attendance and working hours.
+          </p>
+        </div>
+        <Card>
           <CardContent className="flex justify-center pb-6 pt-4">
             <LoadingSpinner className="h-12 w-12" />
           </CardContent>
@@ -388,7 +324,7 @@ export default function AttendancePage() {
               size="sm"
               variant="outline"
               onClick={handleExportCSV}
-              disabled={!filteredAttendances?.length}
+              disabled={!enhancedAttendances?.length}
             >
               <Download className="mr-1 h-3 w-3" />
               Export
@@ -397,123 +333,32 @@ export default function AttendancePage() {
         </Card>
       </div>
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="flex flex-col gap-4 md:flex-row">
-          <div className="w-full md:w-64">
-            <Label htmlFor="searchTerm">Search</Label>
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="searchTerm"
-                placeholder="Search by name or ID..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-          </div>
-          <div className="w-full md:w-auto">
-            <Label htmlFor="dateFrom">Date From</Label>
-            <Input
-              id="dateFrom"
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-            />
-          </div>
-          <div className="w-full md:w-auto">
-            <Label htmlFor="dateTo">Date To</Label>
-            <Input
-              id="dateTo"
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-2">
-          <Button
-            variant={viewMode === 'all' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('all')}
-          >
-            <CalendarDays className="mr-1 h-4 w-4" />
-            All Records
-          </Button>
-          <Button
-            variant={viewMode === 'today' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('today')}
-          >
-            <Calendar className="mr-1 h-4 w-4" />
-            Today
-          </Button>
-
-          <Tooltip content="Clear all filters">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-9 w-9"
-              onClick={() => {
-                setSearchTerm('');
-                setDateFrom('');
-                setDateTo('');
-                setViewMode('all');
-              }}
-            >
-              <Filter className="h-4 w-4" />
-              <span className="sr-only">Clear filters</span>
-            </Button>
-          </Tooltip>
-        </div>
-      </div>
-
-      {filteredAttendances?.length === 0 ? (
-        <Card className="flex h-[300px] flex-col items-center justify-center">
-          <User className="h-12 w-12 text-muted-foreground/50" />
-          <h3 className="mt-4 text-lg font-medium">No attendance records found</h3>
-          <p className="text-sm text-muted-foreground">
-            {searchTerm || dateFrom || dateTo || viewMode === 'today'
-              ? 'Try adjusting your filters'
-              : 'Create your first attendance record to get started'}
-          </p>
-          {!searchTerm && !dateFrom && !dateTo && (
-            <Button className="mt-4" onClick={() => navigate('/dashboard/attendance/new')}>
+      <DataTable
+        columns={columns}
+        data={enhancedAttendances}
+        isLoading={loading}
+        pagination
+        initialPageSize={10}
+        searchPlaceholder="Search by employee name or ID..."
+        title="Attendance Records"
+        subtitle="View and manage employee attendance"
+        filterableColumns={filterableColumns}
+        actions={
+          <div className="flex gap-2">
+            <Button onClick={() => navigate('/dashboard/attendance/new')}>
               <Plus className="mr-2 h-4 w-4" />
-              Add Record
+              New Record
             </Button>
-          )}
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            <DataTable
-              columns={columns}
-              data={
-                filteredAttendances?.slice((currentPage - 1) * pageSize, currentPage * pageSize) ||
-                []
-              }
-              searchable={true}
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-              pagination={true}
-              pageSize={pageSize}
-              currentPage={currentPage}
-              totalItems={filteredAttendances?.length || 0}
-              onPageChange={setCurrentPage}
-              onPageSizeChange={handlePageSizeChange}
-              isLoading={loading}
-              density="normal"
-            />
-          </CardContent>
-          <CardFooter className="border-t px-6 py-3">
-            <p className="text-sm text-muted-foreground">
-              Showing {filteredAttendances?.length} of {enhancedAttendances?.length} records
-            </p>
-          </CardFooter>
-        </Card>
-      )}
+            <Button variant="outline" onClick={handleExportCSV} disabled={!enhancedAttendances?.length}>
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </Button>
+          </div>
+        }
+        initialSortColumn="date"
+        initialSortDirection="desc"
+        emptyMessage="No attendance records found. Create your first record to get started."
+      />
 
       {attendanceToDelete && (
         <ConfirmationDialog

@@ -1,14 +1,10 @@
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { CategoryGroup } from '@/types/categoryGroup';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -19,16 +15,20 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { CategoryGroup } from '@/types/categoryGroup';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
 
 const formSchema = z.object({
   name: z
     .string()
     .min(2, 'Category group name must be at least 2 characters')
-    .max(50, 'Category group name cannot exceed 50 characters')
+    .max(100, 'Category group name cannot exceed 100 characters')
     .regex(
-      /^[a-zA-Z0-9\s-]+$/,
-      'Category group name can only contain letters, numbers, spaces, and hyphens'
+      /^[a-zA-Z0-9\s\-_:.()]+$/,
+      'Category group name can only contain letters, numbers, spaces, hyphens, underscores, colons, dots, and parentheses'
     )
     .transform((val) => val.trim()),
 });

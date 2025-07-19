@@ -1,24 +1,21 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useToast } from '@/components/ui/use-toast';
-import { useLoading } from '@/contexts/LoadingContext';
-import { Button } from '@/components/ui/button';
-import { Employee } from '@/types/employee';
-import { Department } from '@/types/department';
-import { JobTitle } from '@/types/jobTitle';
-import { CategoryGroup } from '@/types/categoryGroup';
-import { useEmployees } from '@/hooks/useEmployees';
-import { useDepartments } from '@/hooks/useDepartments';
-import { useJobTitles } from '@/hooks/useJobTitles';
-import { useCategoryGroups } from '@/hooks/useCategoryGroups';
 import { DataTable } from '@/components/common/DataTable';
+import ConfirmationDialog from '@/components/ConfirmationDialog';
 import { getEmployeeColumns } from '@/components/employees/columns';
 import EmployeeDialog from '@/components/employees/EmployeeDialog';
-import ConfirmationDialog from '@/components/ConfirmationDialog';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
+import { useLoading } from '@/contexts/LoadingContext';
+import { useCategoryGroups } from '@/hooks/useCategoryGroups';
+import { useDepartments } from '@/hooks/useDepartments';
+import { useEmployees } from '@/hooks/useEmployees';
+import { useJobTitles } from '@/hooks/useJobTitles';
 import { showErrorToast } from '@/lib/error-handler';
 import { employeeService } from '@/services/employeeService';
+import { Employee } from '@/types/employee';
+import { useQueryClient } from '@tanstack/react-query';
+import { AlertCircle } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
 
 export default function EmployeesPage() {
   // State management
@@ -114,6 +111,41 @@ export default function EmployeesPage() {
     }
   }, [employees, departments, jobTitles, categoryGroups]);
 
+  // Memoize filterable columns
+  const filterableColumns = useMemo(() => {
+    try {
+      return [
+        {
+          id: 'department',
+          title: 'Department',
+          options: departments.map((dept) => ({
+            label: dept.departmentName,
+            value: dept.departmentName,
+          })),
+        },
+        {
+          id: 'jobTitle',
+          title: 'Job Title',
+          options: jobTitles.map((job) => ({
+            label: job.title,
+            value: job.title,
+          })),
+        },
+        {
+          id: 'categoryGroup',
+          title: 'Category',
+          options: categoryGroups.map((category) => ({
+            label: category.name,
+            value: category.name,
+          })),
+        },
+      ];
+    } catch (error) {
+      console.error('Error creating filterable columns:', error);
+      return [];
+    }
+  }, [departments, jobTitles, categoryGroups]);
+
   // Memoize table columns
   const columns = useMemo(() => {
     try {
@@ -165,10 +197,13 @@ export default function EmployeesPage() {
           isLoading={isLoading}
           pagination
           initialPageSize={pageSize}
-          searchPlaceholder="Search employees..."
+          searchPlaceholder="Search employees by name, email, or phone..."
           title="Employee Directory"
           subtitle="View and manage all employees"
+          filterableColumns={filterableColumns}
           actions={<Button onClick={handleCreate}>Add Employee</Button>}
+          initialSortColumn="name"
+          initialSortDirection="asc"
         />
       ) : (
         <Alert variant="destructive" className="mt-4">
