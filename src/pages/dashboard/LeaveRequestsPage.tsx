@@ -15,6 +15,7 @@ import { LeaveRequest } from '@/types/leaveRequest';
 import { useQueryClient } from '@tanstack/react-query';
 import { FileText, Plus } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
+import { isAdmin } from '@/lib/jwt-utils';
 
 const EmptyState = ({ onCreateClick }: { onCreateClick: () => void }) => (
   <Card className="flex h-[400px] flex-col items-center justify-center">
@@ -53,14 +54,17 @@ const PageHeader = ({ onCreateClick, isAdmin }: { onCreateClick: () => void; isA
 );
 
 export default function LeaveRequestsPage() {
+  const [searchTerm, setSearchTerm] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
 
-  const queryClient = useQueryClient();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+
+  const [approvalAction, setApprovalAction] = useState<{ approved: boolean; request: LeaveRequest } | null>(null);
+  const [cancellationAction, setCancellationAction] = useState<{ cancel: boolean; request: LeaveRequest } | null>(null);
+  const [deleteAction, setDeleteAction] = useState<LeaveRequest | null>(null);
   const { toast } = useToast();
-  const { withLoading } = useLoading();
   const { user } = useAuth();
 
   // Fetch data
@@ -68,70 +72,114 @@ export default function LeaveRequestsPage() {
     leaveRequests,
     myLeaveRequests,
     isLoading,
+    isLoadingMyRequests,
     createRequest,
-    updateRequest,
     deleteRequest,
     approveRequest,
+    cancelRequest,
   } = useLeaveRequests();
 
   const { data: leaveTypes = [] } = useLeaveTypes();
 
   // Check if user is admin
-  const isAdmin = () => {
-    return user?.roles?.some((role) => role === 'Admin' || role === 'Manager') || false;
+  const isAdminUser = () => {
+    return user?.roles ? isAdmin(user.roles) : false;
   };
 
   // Determine which data to use based on user role
-  const allRequests = isAdmin() ? (leaveRequests || []) : (myLeaveRequests || []);
+  const allRequests = isAdminUser() ? (leaveRequests || []) : (myLeaveRequests || []);
 
-  // Handlers
-  const handleEdit = useCallback(
-    (request: LeaveRequest) => {
-      setSelectedRequest(request);
-      setIsEditDialogOpen(true);
-    },
-    []
-  );
+  // Determine the correct loading state
+  const isDataLoading = isAdminUser() ? isLoading : isLoadingMyRequests;
+
+
+
+  // // Debug component for development
+  // const DebugInfo = () => {
+  //   if (import.meta.env.DEV) {
+  //     return (
+  //       <div className="mb-4 p-4 bg-gray-100 rounded-lg text-xs">
+  //         <h4 className="font-bold mb-2">Debug Info (Development Only)</h4>
+  //         <div>User Email: {user?.email}</div>
+  //         <div>User Roles: {user?.roles?.join(', ')}</div>
+  //         <div>Is Admin: {isAdminUser() ? 'Yes' : 'No'}</div>
+  //         <div>Leave Requests Count: {leaveRequests?.length || 0}</div>
+  //         <div>My Leave Requests Count: {myLeaveRequests?.length || 0}</div>
+  //         <div>All Requests Count: {allRequests?.length || 0}</div>
+  //         <div className="mt-2">
+  //           <h5 className="font-semibold">Request Status Breakdown:</h5>
+  //           {allRequests.map((req, index) => (
+  //             <div key={index} className="ml-2">
+  //               ID: {req.id?.substring(0, 8) || 'N/A'}... | 
+  //               Approved: {req.approved === null ? 'null' : String(req.approved)} | 
+  //               Cancelled: {String(req.cancelled || false)} | 
+  //               Status: {
+  //                 req.cancelled ? 'Cancelled' : 
+  //                 req.approved === null ? 'Pending' : 
+  //                 req.approved ? 'Approved' : 'Rejected'
+  //               }
+  //             </div>
+  //           ))}
+  //         </div>
+  //       </div>
+  //     );
+  //   }
+  //   return null;
+  // };
+
+
 
   const handleDelete = useCallback(
     (request: LeaveRequest) => {
-      setSelectedRequest(request);
+      setDeleteAction(request);
       setIsDeleteDialogOpen(true);
     },
     []
   );
 
   const handleApprove = useCallback(
-    async (request: LeaveRequest, approved: boolean) => {
-      try {
-        await approveRequest.mutateAsync({ id: request.id, approved });
-      } catch (error) {
-        // Error will be handled by the mutation
-      }
+    (request: LeaveRequest, approved: boolean) => {
+      setApprovalAction({ approved, request });
+      setIsApproveDialogOpen(true);
     },
-    [approveRequest]
+    []
   );
 
   const handleCancel = useCallback(
-    async (request: LeaveRequest, cancel: boolean) => {
-      try {
-        await cancelLeaveRequest(request.id, cancel);
-        toast({
-          title: 'Success',
-          description: `Leave request ${cancel ? 'cancelled' : 'uncancelled'} successfully`,
-        });
-        // Refresh the data
-        window.location.reload();
-      } catch (error) {
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: error instanceof Error ? error.message : 'Failed to cancel leave request',
-        });
-      }
+    (request: LeaveRequest, cancel: boolean) => {
+      setCancellationAction({ cancel, request });
+      setIsCancelDialogOpen(true);
     },
-    [toast]
+    []
   );
+
+  const handleApproveConfirm = useCallback(async () => {
+    if (!approvalAction) return;
+    try {
+      await approveRequest.mutateAsync({ 
+        id: approvalAction.request.id, 
+        approved: approvalAction.approved 
+      });
+      setIsApproveDialogOpen(false);
+      setApprovalAction(null);
+    } catch (error) {
+      // Error will be handled by the mutation
+    }
+  }, [approvalAction, approveRequest]);
+
+  const handleCancelConfirm = useCallback(async () => {
+    if (!cancellationAction) return;
+    try {
+      await cancelRequest.mutateAsync({ 
+        id: cancellationAction.request.id, 
+        cancel: cancellationAction.cancel 
+      });
+      setIsCancelDialogOpen(false);
+      setCancellationAction(null);
+    } catch (error) {
+      // Error will be handled by the mutation
+    }
+  }, [cancellationAction, cancelRequest]);
 
   const handleCreateSubmit = useCallback(
     async (values: LeaveRequestFormValues) => {
@@ -145,27 +193,14 @@ export default function LeaveRequestsPage() {
     [createRequest]
   );
 
-  const handleEditSubmit = useCallback(
-    async (values: LeaveRequestFormValues) => {
-      if (!selectedRequest) return;
-      try {
-        await updateRequest.mutateAsync({
-          id: selectedRequest.id,
-          data: values,
-        });
-        setIsEditDialogOpen(false);
-      } catch (error) {
-        throw error;
-      }
-    },
-    [selectedRequest, updateRequest]
-  );
+
 
   const handleDeleteConfirm = useCallback(async () => {
-    if (!selectedRequest) return;
+    if (!deleteAction) return;
     try {
-      await deleteRequest.mutateAsync(selectedRequest.id);
+      await deleteRequest.mutateAsync(deleteAction.id);
       setIsDeleteDialogOpen(false);
+      setDeleteAction(null);
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -173,19 +208,20 @@ export default function LeaveRequestsPage() {
         description: error instanceof Error ? error.message : 'Failed to delete leave request',
       });
     }
-  }, [selectedRequest, deleteRequest, toast]);
+  }, [deleteAction, deleteRequest, toast]);
 
   // Memoized columns
   const columns = useMemo(
     () =>
       getLeaveRequestColumns({
-        onEdit: handleEdit,
         onDelete: handleDelete,
         onApprove: handleApprove,
         onCancel: handleCancel,
         showActions: true,
+        isAdmin: isAdminUser(),
+        getCurrentUserId: () => user?.id || null,
       }),
-    [handleEdit, handleDelete, handleApprove, handleCancel]
+    [handleDelete, handleApprove, handleCancel, isAdminUser, user?.id]
   );
 
   // Filterable columns
@@ -212,19 +248,21 @@ export default function LeaveRequestsPage() {
 
   return (
     <div className="container mx-auto space-y-6 py-6">
-      <PageHeader onCreateClick={() => setIsCreateDialogOpen(true)} isAdmin={isAdmin()} />
+      <PageHeader onCreateClick={() => setIsCreateDialogOpen(true)} isAdmin={isAdminUser()} />
+      
+      {/* <DebugInfo /> */}
 
-      {allRequests.length === 0 && !isLoading ? (
+      {allRequests.length === 0 && !isDataLoading ? (
         <EmptyState onCreateClick={() => setIsCreateDialogOpen(true)} />
       ) : (
         <DataTable
           columns={columns}
           data={allRequests}
-          isLoading={isLoading}
+          isLoading={isDataLoading}
           searchPlaceholder="Search by leave type, comments, or employee name..."
-          title={isAdmin() ? 'Leave Requests' : 'My Leave Requests'}
+          title={isAdminUser() ? 'Leave Requests' : 'My Leave Requests'}
           subtitle={
-            isAdmin()
+            isAdminUser()
               ? 'Manage and approve employee leave requests'
               : 'View and manage your leave requests'
           }
@@ -249,14 +287,7 @@ export default function LeaveRequestsPage() {
         leaveTypes={leaveTypes}
       />
 
-      {/* Edit Leave Request Dialog */}
-      <LeaveRequestDialog
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-        onSubmit={handleEditSubmit}
-        leaveRequest={selectedRequest || undefined}
-        leaveTypes={leaveTypes}
-      />
+
 
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
@@ -265,6 +296,32 @@ export default function LeaveRequestsPage() {
         title="Delete Leave Request"
         description="Are you sure you want to delete this leave request? This action cannot be undone."
         onConfirm={handleDeleteConfirm}
+      />
+
+      {/* Approve/Reject Confirmation Dialog */}
+      <ConfirmationDialog
+        open={isApproveDialogOpen}
+        onOpenChange={setIsApproveDialogOpen}
+        title={approvalAction?.approved ? "Approve Leave Request" : "Reject Leave Request"}
+        description={
+          approvalAction?.approved 
+            ? `Are you sure you want to approve this leave request? This will allow the employee to take leave.`
+            : `Are you sure you want to reject this leave request? This will deny the employee's leave request.`
+        }
+        onConfirm={handleApproveConfirm}
+      />
+
+      {/* Cancel/Uncancel Confirmation Dialog */}
+      <ConfirmationDialog
+        open={isCancelDialogOpen}
+        onOpenChange={setIsCancelDialogOpen}
+        title={cancellationAction?.cancel ? "Cancel Leave Request" : "Uncancel Leave Request"}
+        description={
+          cancellationAction?.cancel 
+            ? `Are you sure you want to cancel this leave request? This will prevent the employee from taking leave.`
+            : `Are you sure you want to uncancel this leave request? This will allow the employee to take leave again.`
+        }
+        onConfirm={handleCancelConfirm}
       />
     </div>
   );

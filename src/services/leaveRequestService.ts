@@ -117,7 +117,7 @@ export class LeaveRequestService {
     try {
       return await retryOperation(
         async () => {
-          const response = await axios.get<LeaveRequest[]>('/api/LeaveRequests/GetMyLeaves');
+          const response = await axios.get<any>('/api/LeaveRequests/GetMyLeaves');
 
           let leaveRequests: LeaveRequest[] = [];
 
@@ -125,14 +125,39 @@ export class LeaveRequestService {
             return [];
           }
 
+          // Handle the API response structure based on Swagger documentation
           if (Array.isArray(response.data)) {
+            // Direct array response
             leaveRequests = response.data;
           } else {
             const data = response.data as any;
-            if (data.result && Array.isArray(data.result)) {
+            
+            // Check for userLeave array (from Swagger response)
+            if (data.userLeave && Array.isArray(data.userLeave)) {
+              leaveRequests = data.userLeave;
+            }
+            // Check for result array (fallback)
+            else if (data.result && Array.isArray(data.result)) {
               leaveRequests = data.result;
             }
+            // Check for any other array property
+            else {
+              for (const [key, value] of Object.entries(data)) {
+                if (Array.isArray(value)) {
+                  leaveRequests = value;
+                  break;
+                }
+              }
+            }
           }
+
+          // Add missing fields if they don't exist
+          leaveRequests = leaveRequests.map(request => ({
+            ...request,
+            cancelled: request.cancelled ?? false,
+            requestingEmployeeId: request.requestingEmployeeId || '',
+            leaveTypeName: request.leaveTypeName || '',
+          }));
 
           return leaveRequests;
         },

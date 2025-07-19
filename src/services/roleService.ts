@@ -1,5 +1,5 @@
 import axios from '@/lib/axios';
-import { showErrorToast, retryOperation } from '@/lib/error-handler';
+import { showErrorToast, retryOperation, getErrorMessage } from '@/lib/error-handler';
 import { sanitizeObject } from '@/lib/utils';
 
 export interface Role {
@@ -119,8 +119,8 @@ export class RoleService {
 
       return role;
     } catch (error) {
-      const errorDetails = showErrorToast(error, `fetching role ${id}`);
-      throw new Error(errorDetails.message);
+      showErrorToast(error, `fetching role ${id}`);
+      throw new Error(getErrorMessage(error, `fetching role ${id}`));
     }
   }
 
@@ -155,8 +155,8 @@ export class RoleService {
 
       return createdRole;
     } catch (error) {
-      const errorDetails = showErrorToast(error, 'creating role');
-      throw new Error(errorDetails.message);
+      showErrorToast(error, 'creating role');
+      throw new Error(getErrorMessage(error, 'creating role'));
     }
   }
 
@@ -192,8 +192,8 @@ export class RoleService {
 
       return updatedRole;
     } catch (error) {
-      const errorDetails = showErrorToast(error, 'updating role');
-      throw new Error(errorDetails.message);
+      showErrorToast(error, 'updating role');
+      throw new Error(getErrorMessage(error, 'updating role'));
     }
   }
 
@@ -205,8 +205,8 @@ export class RoleService {
     try {
       await axios.delete(`/api/Roles/${id}`);
     } catch (error) {
-      const errorDetails = showErrorToast(error, `deleting role ${id}`);
-      throw new Error(errorDetails.message);
+      showErrorToast(error, `deleting role ${id}`);
+      throw new Error(getErrorMessage(error, `deleting role ${id}`));
     }
   }
 
@@ -221,8 +221,8 @@ export class RoleService {
 
       await axios.post('/api/Roles/assign', sanitizedData);
     } catch (error) {
-      const errorDetails = showErrorToast(error, 'assigning role');
-      throw new Error(errorDetails.message);
+      showErrorToast(error, 'assigning role');
+      throw new Error(getErrorMessage(error, 'assigning role'));
     }
   }
 }

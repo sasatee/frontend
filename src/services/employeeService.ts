@@ -1,6 +1,6 @@
 import axios from '@/lib/axios';
 import { sanitizeObject } from '@/lib/utils';
-import { showErrorToast } from '@/lib/error-handler';
+import { showErrorToast, getErrorMessage } from '@/lib/error-handler';
 import { PaginationParams } from '@/hooks/usePaginatedData';
 import { queryClient } from '@/lib/react-query';
 
@@ -193,8 +193,8 @@ export class EmployeeService {
       }
     } catch (error) {
       console.error('Error fetching employee:', error);
-      const errorDetails = showErrorToast(error, `fetching employee ${id}`);
-      throw new Error(errorDetails.message);
+      showErrorToast(error, `fetching employee ${id}`);
+      throw new Error(getErrorMessage(error, `fetching employee ${id}`));
     }
   }
 
@@ -423,8 +423,8 @@ export class EmployeeService {
         throw new Error(errorMessage);
       }
 
-      const errorDetails = showErrorToast(error, 'updating employee');
-      throw new Error(errorDetails.message);
+      showErrorToast(error, 'updating employee');
+      throw new Error(getErrorMessage(error, 'updating employee'));
     }
   }
 
@@ -436,8 +436,8 @@ export class EmployeeService {
     try {
       await axios.delete(`/api/Employee/${id}`);
     } catch (error) {
-      const errorDetails = showErrorToast(error, `deleting employee ${id}`);
-      throw new Error(errorDetails.message);
+      showErrorToast(error, `deleting employee ${id}`);
+      throw new Error(getErrorMessage(error, `deleting employee ${id}`));
     }
   }
 }

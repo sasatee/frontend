@@ -34,7 +34,7 @@ export const useLeaveTypes = (options: UseLeaveTypesOptions = {}) => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: updateLeaveType,
+    mutationFn: ({ id, data }: { id: string; data: any }) => updateLeaveType(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leave-types'] });
     },

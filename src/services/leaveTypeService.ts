@@ -1,6 +1,6 @@
 import axios from '@/lib/axios';
 import { LeaveType, CreateLeaveTypeDto } from '@/types/leaveType';
-import { showErrorToast, retryOperation } from '@/lib/error-handler';
+import { showErrorToast, retryOperation, getErrorMessage } from '@/lib/error-handler';
 import { sanitizeObject } from '@/lib/utils';
 import { PaginationParams } from '@/hooks/usePaginatedData';
 
@@ -101,14 +101,14 @@ export class LeaveTypeService {
 
       // The API returns a single leave type object
       return {
-        id: response.data.id || id,
-        name: response.data.name || '',
-        defaultDays: response.data.defaultDays || 0,
+        id: response.data?.id || id,
+        name: response.data?.name || '',
+        defaultDays: response.data?.defaultDays || 0,
       };
     } catch (error) {
       console.error('Error in getLeaveTypeById:', error);
-      const errorDetails = showErrorToast(error, `fetching leave type ${id}`);
-      throw new Error(errorDetails.message);
+      showErrorToast(error, `fetching leave type ${id}`);
+      throw new Error(getErrorMessage(error, `fetching leave type ${id}`));
     }
   }
 
@@ -127,13 +127,13 @@ export class LeaveTypeService {
 
       // Return the created leave type
       return {
-        id: response.data.id || '',
-        name: response.data.name || sanitizedData.name,
-        defaultDays: response.data.defaultDays || sanitizedData.defaultDays,
+        id: response.data?.id || '',
+        name: response.data?.name || sanitizedData.name,
+        defaultDays: response.data?.defaultDays || sanitizedData.defaultDays,
       };
     } catch (error) {
-      const errorDetails = showErrorToast(error, 'creating leave type');
-      throw new Error(errorDetails.message);
+      showErrorToast(error, 'creating leave type');
+      throw new Error(getErrorMessage(error, 'creating leave type'));
     }
   }
 
@@ -148,24 +148,67 @@ export class LeaveTypeService {
     leaveType: CreateLeaveTypeDto | UpdateLeaveTypeDto
   ): Promise<LeaveType> {
     try {
-      // Sanitize input data
+      console.log('Input parameters:', { id, leaveType });
+      
+      // Validate input parameters
+      if (!leaveType) {
+        throw new Error('Leave type data is required');
+      }
+      
+      if (!leaveType.name) {
+        throw new Error('Leave type name is required');
+      }
+      
+      if (typeof leaveType.defaultDays !== 'number') {
+        throw new Error('Leave type default days must be a number');
+      }
+
+      // Sanitize input data - only send the required fields
       const sanitizedData = sanitizeObject({
         name: leaveType.name,
         defaultDays: leaveType.defaultDays,
       });
 
+      console.log('Updating leave type with data:', { id, sanitizedData });
+
       // Call API - PUT /api/LeaveType/{id} with name, defaultDays
       const response = await axios.put<LeaveType>(`/api/LeaveType/${id}`, sanitizedData);
 
+      console.log('Update response:', {
+        status: response.status,
+        data: response.data,
+        dataType: typeof response.data,
+        isNull: response.data === null,
+        isUndefined: response.data === undefined,
+        headers: response.headers
+      });
+
       // Return the updated leave type
-      return {
-        id: id,
-        name: response.data.name || sanitizedData.name,
-        defaultDays: response.data.defaultDays || sanitizedData.defaultDays,
-      };
+      // Handle cases where response.data might be undefined or null
+      let updatedLeaveType: LeaveType;
+      
+      try {
+        updatedLeaveType = {
+          id: id,
+          name: response.data?.name || sanitizedData.name,
+          defaultDays: response.data?.defaultDays || sanitizedData.defaultDays,
+        };
+      } catch (dataError) {
+        console.error('Error accessing response data:', dataError);
+        // Fallback to using the input data if response.data is problematic
+        updatedLeaveType = {
+          id: id,
+          name: sanitizedData.name,
+          defaultDays: sanitizedData.defaultDays,
+        };
+      }
+
+      console.log('Returning updated leave type:', updatedLeaveType);
+      return updatedLeaveType;
     } catch (error) {
-      const errorDetails = showErrorToast(error, 'updating leave type');
-      throw new Error(errorDetails.message);
+      console.error('Error in updateLeaveType:', error);
+      showErrorToast(error, 'updating leave type');
+      throw new Error(getErrorMessage(error, 'updating leave type'));
     }
   }
 
@@ -196,8 +239,8 @@ export class LeaveTypeService {
 
       // For other errors, show error toast and throw
       console.error(`Error deleting leave type ${id}:`, error);
-      const errorDetails = showErrorToast(error, 'deleting leave type');
-      throw new Error(errorDetails.message);
+      showErrorToast(error, 'deleting leave type');
+      throw new Error(getErrorMessage(error, 'deleting leave type'));
     }
   }
 }

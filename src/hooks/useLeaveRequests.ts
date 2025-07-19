@@ -1,6 +1,7 @@
 import { useToast } from '@/components/ui/use-toast';
 import {
   approveLeaveRequest,
+  cancelLeaveRequest,
   createLeaveRequest,
   deleteLeaveRequest,
   getLeaveRequests,
@@ -10,6 +11,8 @@ import {
 import { CreateLeaveRequestDto, UpdateLeaveRequestDto } from '@/types/leaveRequest';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PaginationParams } from './usePaginatedData';
+import { useAuth } from '@/hooks/useAuth';
+import { isAdmin } from '@/lib/jwt-utils';
 
 interface UpdateRequestParams {
   id: string;
@@ -21,9 +24,18 @@ interface ApproveRequestParams {
   approved: boolean;
 }
 
+interface CancelRequestParams {
+  id: string;
+  cancel: boolean;
+}
+
 export function useLeaveRequests(params?: PaginationParams) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Check if user is admin - handle case where user might not be available
+  const isAdminUser = user?.roles ? isAdmin(user.roles) : false;
 
   // Common query configuration
   const queryConfig = {
@@ -37,13 +49,14 @@ export function useLeaveRequests(params?: PaginationParams) {
   // Query for fetching all leave requests (admin only)
   const {
     data: leaveRequests,
-    isLoading,
-    refetch,
+    isLoading: isLoadingAllRequests,
+    refetch: refetchAllRequests,
     error: leaveRequestsError,
   } = useQuery({
     queryKey: ['leaveRequests', params],
     queryFn: () => getLeaveRequests(params),
     ...queryConfig,
+    enabled: isAdminUser && !!user, // Only fetch if user is admin and user is available
   });
 
   // Query for fetching current user's leave requests
@@ -55,17 +68,22 @@ export function useLeaveRequests(params?: PaginationParams) {
     queryKey: ['myLeaveRequests'],
     queryFn: () => getMyLeaveRequests(),
     ...queryConfig,
+    enabled: !!user, // Only fetch if user is available
   });
+
+  // Determine which data and loading state to use
+  const isLoading = isAdminUser ? isLoadingAllRequests : isLoadingMyRequests;
+  const refetch = isAdminUser ? refetchAllRequests : () => {};
+
+  // Safety check - if user is not available, don't show loading
+  const safeIsLoading = !user ? false : isLoading;
 
   // Mutation for creating a leave request
   const createRequest = useMutation({
     mutationFn: (data: CreateLeaveRequestDto) => createLeaveRequest(data),
-    onSuccess: async () => {
-      // Batch invalidate queries
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['leaveRequests'] }),
-        queryClient.invalidateQueries({ queryKey: ['myLeaveRequests'] }),
-      ]);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leaveRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['myLeaveRequests'] });
 
       toast({
         title: 'Success',
@@ -84,10 +102,9 @@ export function useLeaveRequests(params?: PaginationParams) {
   // Mutation for updating a leave request
   const updateRequest = useMutation({
     mutationFn: ({ id, data }: UpdateRequestParams) => updateLeaveRequest(id, data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['leaveRequests'] });
-      await queryClient.invalidateQueries({ queryKey: ['myLeaveRequests'] });
-      await refetch();
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leaveRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['myLeaveRequests'] });
 
       toast({
         title: 'Success',
@@ -106,10 +123,9 @@ export function useLeaveRequests(params?: PaginationParams) {
   // Mutation for approving a leave request
   const approveRequest = useMutation({
     mutationFn: ({ id, approved }: ApproveRequestParams) => approveLeaveRequest(id, approved),
-    onSuccess: async (_, { approved }) => {
-      await queryClient.invalidateQueries({ queryKey: ['leaveRequests'] });
-      await queryClient.invalidateQueries({ queryKey: ['myLeaveRequests'] });
-      await refetch();
+    onSuccess: (_, { approved }) => {
+      queryClient.invalidateQueries({ queryKey: ['leaveRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['myLeaveRequests'] });
 
       toast({
         title: 'Success',
@@ -125,13 +141,33 @@ export function useLeaveRequests(params?: PaginationParams) {
     },
   });
 
+  // Mutation for cancelling a leave request
+  const cancelRequest = useMutation({
+    mutationFn: ({ id, cancel }: CancelRequestParams) => cancelLeaveRequest(id, cancel),
+    onSuccess: (_, { cancel }) => {
+      queryClient.invalidateQueries({ queryKey: ['leaveRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['myLeaveRequests'] });
+
+      toast({
+        title: 'Success',
+        description: `Leave request ${cancel ? 'cancelled' : 'uncancelled'} successfully`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to cancel leave request',
+      });
+    },
+  });
+
   // Mutation for deleting a leave request
   const deleteRequest = useMutation({
     mutationFn: (id: string) => deleteLeaveRequest(id),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['leaveRequests'] });
-      await queryClient.invalidateQueries({ queryKey: ['myLeaveRequests'] });
-      await refetch();
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leaveRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['myLeaveRequests'] });
 
       toast({
         title: 'Success',
@@ -147,11 +183,13 @@ export function useLeaveRequests(params?: PaginationParams) {
     },
   });
 
+
+
   return {
     // Queries
-    leaveRequests,
-    myLeaveRequests,
-    isLoading,
+    leaveRequests: isAdminUser ? leaveRequests : [],
+    myLeaveRequests: myLeaveRequests || [],
+    isLoading: safeIsLoading,
     isLoadingMyRequests,
     leaveRequestsError,
     myLeaveRequestsError,
@@ -160,6 +198,7 @@ export function useLeaveRequests(params?: PaginationParams) {
     createRequest,
     updateRequest,
     approveRequest,
+    cancelRequest,
     deleteRequest,
     refetch,
   };

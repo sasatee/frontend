@@ -142,6 +142,8 @@ export default function MyLeaveRequestsPage() {
     );
   }, [myLeaveRequests, searchTerm]);
 
+
+
   const paginationInfo = useMemo(() => {
     const totalItems = filteredRequests.length;
     const start = (currentPage - 1) * pageSize;
@@ -236,7 +238,6 @@ export default function MyLeaveRequestsPage() {
         title="Delete Leave Request"
         description="Are you sure you want to delete this leave request? This action cannot be undone."
         onConfirm={handleDeleteConfirm}
-        variant="destructive"
       />
     </div>
   );

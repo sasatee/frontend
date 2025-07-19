@@ -60,10 +60,23 @@ export default function LeaveTypesPage() {
   }, []);
 
   const handleSubmit = async (values: any) => {
-    if (selectedLeaveType) {
-      await updateLeaveType(selectedLeaveType.id, values);
+    console.log('LeaveTypesPage handleSubmit called with:', values);
+    console.log('selectedLeaveType:', selectedLeaveType);
+    
+    // Ensure defaultDays is a number
+    const processedValues = {
+      ...values,
+      defaultDays: typeof values.defaultDays === 'string' ? Number(values.defaultDays) : values.defaultDays
+    };
+    
+    console.log('Processed values:', processedValues);
+    
+    if (selectedLeaveType && selectedLeaveType.id) {
+      console.log('Updating leave type with ID:', selectedLeaveType.id);
+      await updateLeaveType({ id: selectedLeaveType.id, data: processedValues });
     } else {
-      await createLeaveType(values);
+      console.log('Creating new leave type');
+      await createLeaveType(processedValues);
     }
   };
 

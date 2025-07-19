@@ -1,5 +1,5 @@
 import axios from '@/lib/axios';
-import { showErrorToast, retryOperation } from '@/lib/error-handler';
+import { showErrorToast, retryOperation, getErrorMessage } from '@/lib/error-handler';
 import { sanitizeObject } from '@/lib/utils';
 import {
   Allowance,
@@ -42,8 +42,8 @@ export const getAllowanceById = async (id: string): Promise<Allowance> => {
     const response = await axios.get<Allowance>(`/api/Allowance/${id}`);
     return response.data;
   } catch (error) {
-    const errorDetails = showErrorToast(error, `fetching allowance ${id}`);
-    throw new Error(errorDetails.message);
+    showErrorToast(error, `fetching allowance ${id}`);
+    throw new Error(getErrorMessage(error, `fetching allowance ${id}`));
   }
 };
 
@@ -54,8 +54,8 @@ export const createAllowance = async (allowance: CreateAllowanceDto): Promise<Al
     const response = await axios.post<Allowance>('/api/Allowance', sanitizedData);
     return response.data;
   } catch (error) {
-    const errorDetails = showErrorToast(error, 'creating allowance');
-    throw new Error(errorDetails.message);
+    showErrorToast(error, 'creating allowance');
+    throw new Error(getErrorMessage(error, 'creating allowance'));
   }
 };
 
@@ -69,8 +69,8 @@ export const updateAllowance = async (
     const response = await axios.put<Allowance>(`/api/Allowance/${id}`, sanitizedData);
     return response.data;
   } catch (error) {
-    const errorDetails = showErrorToast(error, 'updating allowance');
-    throw new Error(errorDetails.message);
+    showErrorToast(error, 'updating allowance');
+    throw new Error(getErrorMessage(error, 'updating allowance'));
   }
 };
 
@@ -78,8 +78,8 @@ export const deleteAllowance = async (id: string): Promise<void> => {
   try {
     await axios.delete(`/api/Allowance/${id}`);
   } catch (error) {
-    const errorDetails = showErrorToast(error, 'deleting allowance');
-    throw new Error(errorDetails.message);
+    showErrorToast(error, 'deleting allowance');
+    throw new Error(getErrorMessage(error, 'deleting allowance'));
   }
 };
 
@@ -117,7 +117,7 @@ export const createManyAllowances = async (
     );
     return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
-    const errorDetails = showErrorToast(error, 'creating multiple allowances');
-    throw new Error(errorDetails.message);
+    showErrorToast(error, 'creating multiple allowances');
+    throw new Error(getErrorMessage(error, 'creating multiple allowances'));
   }
 };
