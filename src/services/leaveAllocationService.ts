@@ -100,6 +100,23 @@ export const getLeaveBalance = async (
     console.error('Error status:', error.response?.status);
     console.error('Error data:', error.response?.data);
 
+    // Handle specific HTTP status codes
+    if (error.response?.status === 404) {
+      throw new Error('No leave allocation found');
+    }
+    
+    if (error.response?.status === 403) {
+      throw new Error('Access denied');
+    }
+    
+    if (error.response?.status === 401) {
+      throw new Error('Unauthorized');
+    }
+    
+    if (error.response?.status >= 500) {
+      throw new Error('Server error');
+    }
+
     // Handle validation errors
     if (error.response?.data?.errors) {
       const errorMessages = Object.values(error.response.data.errors).flat().join(', ');
@@ -109,6 +126,11 @@ export const getLeaveBalance = async (
     // Handle error message in response data
     if (error.response?.data?.message) {
       throw new Error(error.response.data.message);
+    }
+
+    // Handle network errors
+    if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
+      throw new Error('Network error');
     }
 
     // Handle other errors

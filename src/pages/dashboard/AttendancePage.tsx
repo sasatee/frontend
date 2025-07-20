@@ -18,6 +18,7 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/components/ui/use-toast';
 import { useAttendance } from '@/hooks/useAttendance';
 import { useEmployees } from '@/hooks/useEmployees';
+import { useAuth } from '@/hooks/useAuth';
 import { formatWorkHours } from '@/lib/utils';
 import { Attendance } from '@/types/attendance';
 import { ColumnDef } from '@tanstack/react-table';
@@ -35,6 +36,7 @@ export default function AttendancePage() {
   const location = useLocation();
   const { data: employees } = useEmployees();
   const { data: attendances, isLoading: loading, error, deleteAttendance } = useAttendance();
+  const { isAdmin, getUserRoles } = useAuth();
 
   const handleDelete = async (row: { original: Attendance }) => {
     try {
@@ -87,7 +89,6 @@ export default function AttendancePage() {
       'Check In',
       'Check Out',
       'Overtime Hours',
-      'Status',
     ];
     const csvContent = [
       headers.join(','),
@@ -103,7 +104,6 @@ export default function AttendancePage() {
           attendance.checkInTime,
           attendance.checkOutTime,
           attendance.overtimeHours,
-          attendance.status || 'Unknown',
         ].join(',');
       }),
     ].join('\n');
@@ -208,36 +208,28 @@ export default function AttendancePage() {
       enableSorting: true,
       enableHiding: true,
     },
-    {
-      accessorKey: 'status',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
-      cell: ({ row }) => {
-        const attendance = row.original;
-        return <AttendanceStatusBadge status={attendance.status} />;
-      },
-      enableSorting: true,
-      enableHiding: true,
-      filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id));
-      },
-    },
+    
     {
       id: 'actions',
       cell: ({ row }) => {
+        const userRoles = getUserRoles();
+        const canEdit = userRoles.includes('ADMIN') || userRoles.includes('EMPLOYEE');
+        const canDelete = userRoles.includes('ADMIN');
+        
         return (
           <DataTableRowActions
             row={row}
-            onEdit={() => navigate(`/dashboard/attendance/edit/${row.original.id}`)}
-            onDelete={() => {
+            onEdit={canEdit ? () => navigate(`/dashboard/attendance/${row.original.id}/edit`) : undefined}
+            onDelete={canDelete ? () => {
               setAttendanceToDelete(row.original);
               setIsDeleteDialogOpen(true);
-            }}
+            } : undefined}
             onView={() => navigate(`/dashboard/attendance/${row.original.id}`)}
           />
         );
       },
     },
-  ], [navigate]);
+  ], [navigate, getUserRoles]);
 
   // Filterable columns for status
   const filterableColumns = useMemo(() => [

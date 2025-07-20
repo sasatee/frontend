@@ -153,9 +153,9 @@ const router = createBrowserRouter([
           {
             path: 'attendance/:id/edit',
             element: (
-              <AdminRoute>
+              <RequireAnyRole roles={['EMPLOYEE', 'ADMIN']}>
                 <EditAttendancePage />
-              </AdminRoute>
+              </RequireAnyRole>
             ),
           },
           {

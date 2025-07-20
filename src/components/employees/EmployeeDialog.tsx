@@ -37,17 +37,10 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { employeeService, CreateEmployeeDto, UpdateEmployeeDto } from '@/services/employeeService';
 import { useQueryClient } from '@tanstack/react-query';
-import { Department } from '@/types/department';
-import { JobTitle } from '@/types/jobTitle';
-import type { CategoryGroup } from '@/types/categoryGroup';
 import type { EmployeeFormValues } from '@/types/employee';
 
 // Add import for date picker
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
 
 interface EmployeeDialogProps {
   employee?: Employee;

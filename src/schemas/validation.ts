@@ -4,7 +4,7 @@ import { isWeekend, isWithinInterval, differenceInDays, addDays } from 'date-fns
 // Validation patterns
 export const validationPatterns = {
   emailPattern: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-  phonePattern: /^\+?[0-9]{10,15}$/,
+  phonePattern: /^\+?[0-9\s]{10,20}$/,
   passwordPattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
   strongPasswordPattern:
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_+\-=\[\]{}|;:,.<>?])[A-Za-z\d@$!%*?&#^()_+\-=\[\]{}|;:,.<>?]{10,}$/,

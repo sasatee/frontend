@@ -42,7 +42,7 @@ export const employeeSchema = z.object({
 
   jobTitleId: validators.requiredString('Job title'),
 
-  categoryGroupId: z.string().optional(),
+  categoryGroupId: validators.requiredString('Category group'),
 
   nic: z.string().optional(),
 
@@ -138,7 +138,7 @@ export const employeeSchema = z.object({
       }
     ),
 
-  yearsOfService: z.number().optional(),
+  yearsOfService: z.number().min(0, 'Years of service cannot be negative').optional(),
 });
 
 // Add cross-field validation

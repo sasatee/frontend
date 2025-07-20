@@ -14,6 +14,46 @@ import { useLeaveBalance } from '@/hooks/useLeaveBalance';
 import { useLeaveTypes } from '@/hooks/useLeaveTypes';
 import { useState } from 'react';
 
+// Function to convert technical error messages to user-friendly messages
+const getUserFriendlyErrorMessage = (
+  errorMessage: string,
+  selectedYear: number,
+  selectedLeaveTypeId: string,
+  leaveTypes: any[]
+): string => {
+  // Check for common error patterns and provide user-friendly messages
+  if (errorMessage.includes('No leave allocation found')) {
+    const leaveTypeName = selectedLeaveTypeId === 'all' 
+      ? 'any leave type' 
+      : leaveTypes.find(lt => lt.id === selectedLeaveTypeId)?.name || 'the selected leave type';
+    
+    return `No leave allocation found for ${selectedYear}. This means you haven't been allocated any ${leaveTypeName} for this year. Please contact your HR administrator to set up your leave allocation.`;
+  }
+  
+  if (errorMessage.includes('Employee not found')) {
+    return 'Your employee profile could not be found. Please contact your HR administrator to verify your employee record.';
+  }
+  
+  if (errorMessage.includes('Leave type not found')) {
+    return 'The selected leave type could not be found. Please try selecting a different leave type or contact your HR administrator.';
+  }
+  
+  if (errorMessage.includes('Access denied') || errorMessage.includes('Unauthorized')) {
+    return 'You do not have permission to view this leave balance. Please contact your HR administrator if you believe this is an error.';
+  }
+  
+  if (errorMessage.includes('Server error') || errorMessage.includes('Internal server error')) {
+    return 'We are experiencing technical difficulties. Please try again later or contact your HR administrator if the problem persists.';
+  }
+  
+  if (errorMessage.includes('Network error') || errorMessage.includes('Failed to fetch')) {
+    return 'Unable to connect to the server. Please check your internet connection and try again.';
+  }
+  
+  // For any other errors, provide a generic but helpful message
+  return 'Unable to load your leave balance at this time. Please try again or contact your HR administrator for assistance.';
+};
+
 export default function LeaveBalancePage() {
   const { user } = useAuth();
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -165,7 +205,7 @@ export default function LeaveBalancePage() {
       {balanceError && (
         <Alert variant="destructive" className="mb-6">
           <AlertDescription>
-            Failed to load leave balance: {balanceError.message}
+            {getUserFriendlyErrorMessage(balanceError.message, selectedYear, selectedLeaveTypeId, leaveTypes)}
           </AlertDescription>
         </Alert>
       )}
@@ -275,7 +315,20 @@ export default function LeaveBalancePage() {
       {!isLoadingBalance && !leaveBalanceData && !balanceError && (
         <Card className="p-8">
           <CardContent className="text-center">
-            <p className="text-muted-foreground">No leave balance data available for the selected period.</p>
+            <p className="text-muted-foreground mb-4">
+              No leave balance data available for {selectedYear}.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              This could mean:
+            </p>
+            <ul className="text-sm text-muted-foreground mt-2 space-y-1">
+              <li>• You haven't been allocated any leave for this year yet</li>
+              <li>• Your leave allocation is still being processed</li>
+              <li>• There might be a delay in the system</li>
+            </ul>
+            <p className="text-sm text-muted-foreground mt-4">
+              Please contact your HR administrator if you need assistance with your leave allocation.
+            </p>
           </CardContent>
         </Card>
       )}
