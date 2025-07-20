@@ -72,7 +72,7 @@ export const userService = {
     }
   },
 
-  getAllUsers: async (): Promise<User[]> => {
+  getAllUsers: async (): Promise<UserDetails[]> => {
     try {
       // Use the details endpoint (plural) for getting multiple users
       const response = await axios.get<any>('/api/Account/details');
@@ -82,12 +82,12 @@ export const userService = {
       if (response.data && typeof response.data === 'object') {
         // Case 1: Response with users array (based on API structure)
         if (response.data.users && Array.isArray(response.data.users)) {
-          return response.data.users as User[];
+          return response.data.users as UserDetails[];
         }
 
         // Case 2: Direct array response
         else if (Array.isArray(response.data)) {
-          return response.data as User[];
+          return response.data as UserDetails[];
         }
 
         // Case 3: With success property
@@ -106,7 +106,7 @@ export const userService = {
 
         // Case 5: Single user response - wrap in array (fallback)
         else if (response.data.id && response.data.email) {
-          return [response.data as User];
+          return [response.data as UserDetails];
         }
       }
 

@@ -29,8 +29,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { userService, User } from '@/services/userService';
+import { userService, UserDetails } from '@/services/userService';
 import { assignRoleSchema, AssignRoleFormValues } from '@/schemas/role';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Info, CheckCircle } from 'lucide-react';
 
 interface AssignRoleDialogProps {
   open: boolean;
@@ -47,8 +50,9 @@ export default function AssignRoleDialog({
 }: AssignRoleDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserDetails[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
   const { toast } = useToast();
 
   // Initialize form
@@ -99,28 +103,51 @@ export default function AssignRoleDialog({
 
       await onSubmit(roleAssignment);
       form.reset();
+      setSelectedUserId('');
       onOpenChange(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+    } catch (err: any) {
+      // Handle specific "UserAlreadyInRole" error
+      if (err.message?.includes('UserAlreadyInRole') || err.message?.includes('already in role')) {
+        setError('This user already has the selected role. Please choose a different role or user.');
+      } else {
+        setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   // Format user display name (prioritize full name, fallback to email)
-  const getUserDisplayName = (user: User) => {
+  const getUserDisplayName = (user: UserDetails) => {
     const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
     return fullName || user.email;
   };
 
+  // Get selected user's current roles
+  const selectedUser = users.find(user => user.id === selectedUserId);
+  const selectedUserRoles = selectedUser?.roles || [];
+
+  // Filter out roles that the selected user already has
+  const availableRoles = roles.filter((role: Role) => 
+    !selectedUserRoles.some((userRole: string) => 
+      userRole.toUpperCase() === role.name.toUpperCase()
+    )
+  );
+
+  // Handle user selection
+  const handleUserChange = (userId: string) => {
+    setSelectedUserId(userId);
+    form.setValue('userId', userId);
+    form.setValue('roleId', ''); // Reset role selection when user changes
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Assign Role to User</DialogTitle>
           <DialogDescription>
-            Select a user and a role to assign. This will grant the selected permissions to the
-            user.
+            Select a user and a role to assign. This will grant the selected permissions to the user.
           </DialogDescription>
         </DialogHeader>
 
@@ -135,7 +162,7 @@ export default function AssignRoleDialog({
                 <FormItem>
                   <FormLabel>User</FormLabel>
                   <Select
-                    onValueChange={field.onChange}
+                    onValueChange={handleUserChange}
                     value={field.value}
                     disabled={isLoadingUsers}
                   >
@@ -156,7 +183,14 @@ export default function AssignRoleDialog({
                           .filter((user) => user.id && user.id !== '')
                           .map((user) => (
                             <SelectItem key={user.id} value={user.id}>
-                              {getUserDisplayName(user)}
+                              <div className="flex flex-col">
+                                <span>{getUserDisplayName(user)}</span>
+                                {user.roles && user.roles.length > 0 && (
+                                  <span className="text-xs text-muted-foreground">
+                                    Current roles: {user.roles.join(', ')}
+                                  </span>
+                                )}
+                              </div>
                             </SelectItem>
                           ))
                       ) : (
@@ -171,12 +205,29 @@ export default function AssignRoleDialog({
               )}
             />
 
+            {/* Show selected user's current roles */}
+            {selectedUser && selectedUserRoles.length > 0 && (
+              <Alert>
+                <CheckCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Current roles:</strong>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {selectedUserRoles.map((role: string) => (
+                      <Badge key={role} variant="secondary">
+                        {role}
+                      </Badge>
+                    ))}
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <FormField
               control={form.control}
               name="roleId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Role</FormLabel>
+                  <FormLabel>Role to Assign</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -184,13 +235,19 @@ export default function AssignRoleDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {roles
-                        .filter((role) => role.id && role.id !== '')
-                        .map((role) => (
-                          <SelectItem key={role.id} value={role.id}>
-                            {role.name}
-                          </SelectItem>
-                        ))}
+                      {availableRoles.length > 0 ? (
+                        availableRoles
+                          .filter((role) => role.id && role.id !== '')
+                          .map((role) => (
+                            <SelectItem key={role.id} value={role.id}>
+                              {role.name}
+                            </SelectItem>
+                          ))
+                      ) : (
+                        <SelectItem value="no-available-roles" disabled>
+                          No available roles to assign
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -198,8 +255,21 @@ export default function AssignRoleDialog({
               )}
             />
 
+            {/* Show info about available roles */}
+            {selectedUser && availableRoles.length === 0 && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  This user already has all available roles. No additional roles can be assigned.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <DialogFooter>
-              <Button type="submit" disabled={isLoading}>
+              <Button 
+                type="submit" 
+                disabled={isLoading || availableRoles.length === 0 || !selectedUserId}
+              >
                 {isLoading ? <LoadingSpinner className="mr-2" /> : null}
                 {isLoading ? 'Assigning...' : 'Assign Role'}
               </Button>

@@ -74,8 +74,17 @@ export default function RolesPage() {
     try {
       await assignRole.mutateAsync(values);
       setIsAssignDialogOpen(false);
-    } catch (error) {
-      throw error;
+    } catch (error: any) {
+      // Handle specific "UserAlreadyInRole" error
+      if (error.message?.includes('UserAlreadyInRole') || error.message?.includes('already in role')) {
+        toast({
+          variant: 'destructive',
+          title: 'Role Assignment Failed',
+          description: 'This user already has the selected role. Please choose a different role or user.',
+        });
+      } else {
+        throw error;
+      }
     }
   };
 
