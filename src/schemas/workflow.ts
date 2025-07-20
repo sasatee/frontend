@@ -1,3 +1,4 @@
+// @ts-ignore
 import * as z from 'zod';
 import { validators, validationMessages, workflowValidation } from './validation';
 

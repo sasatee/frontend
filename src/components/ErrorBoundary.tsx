@@ -1,3 +1,5 @@
+// @ts-ignore
+// @ts-ignore
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';

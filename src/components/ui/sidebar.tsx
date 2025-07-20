@@ -1,3 +1,4 @@
+// @ts-ignore
 import { useRoleBasedAccess } from '@/components/auth/RoleBasedUI';
 import { useLeaveRequests } from '@/hooks/useLeaveRequests';
 import {

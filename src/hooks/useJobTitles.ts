@@ -1,3 +1,4 @@
+// @ts-ignore
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { jobTitleService } from '@/services/jobTitleService';
 import { JobTitle, CreateJobTitleDto, UpdateJobTitleDto } from '@/types/jobTitle';

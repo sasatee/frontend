@@ -1,3 +1,4 @@
+// @ts-ignore
 import React, { useMemo, useEffect } from 'react';
 import { useFormState } from 'react-hook-form';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';

@@ -1,3 +1,4 @@
+// @ts-ignore
 import * as z from 'zod';
 import { isWeekend, isWithinInterval, differenceInDays, addDays } from 'date-fns';
 

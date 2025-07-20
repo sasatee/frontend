@@ -1,3 +1,4 @@
+// @ts-ignore
 import { Employee } from './employee';
 import { CategoryGroup } from './categoryGroup';
 

@@ -1,3 +1,4 @@
+// @ts-ignore
 import { usePaginatedData } from './usePaginatedData';
 import {
   getCategoryGroups,

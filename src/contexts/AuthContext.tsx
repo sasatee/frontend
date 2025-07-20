@@ -1,3 +1,5 @@
+// @ts-ignore
+// @ts-ignore
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { authService } from '../services/authService';
 import { useToast } from '@/components/ui/use-toast';

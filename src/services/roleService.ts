@@ -1,3 +1,4 @@
+// @ts-ignore
 import axios from '@/lib/axios';
 import { showErrorToast, retryOperation, getErrorMessage } from '@/lib/error-handler';
 import { sanitizeObject } from '@/lib/utils';

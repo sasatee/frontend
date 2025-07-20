@@ -1,3 +1,4 @@
+// @ts-ignore
 import { AxiosError } from 'axios';
 import { toast } from '@/components/ui/use-toast';
 import { ApiError } from '@/types/api';

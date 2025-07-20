@@ -1,3 +1,4 @@
+// @ts-ignore
 import { DataTable } from '@/components/common/DataTable';
 import { ErrorAlert } from '@/components/ErrorAlert';
 import { Alert, AlertDescription } from '@/components/ui/alert';

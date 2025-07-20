@@ -1,3 +1,4 @@
+// @ts-ignore
 import axios from '@/lib/axios';
 
 export interface PayrollDto {

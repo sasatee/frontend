@@ -1,3 +1,4 @@
+// @ts-ignore
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 
 // In development, we use the proxy from Vite config

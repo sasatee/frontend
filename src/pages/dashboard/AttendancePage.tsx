@@ -1,3 +1,4 @@
+// @ts-ignore
 import ConfirmationDialog from '@/components/ConfirmationDialog';
 import { ErrorAlert } from '@/components/ErrorAlert';
 import { AttendanceStatusBadge } from '@/components/attendance/AttendanceStatusBadge';

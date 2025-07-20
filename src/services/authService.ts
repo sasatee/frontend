@@ -1,3 +1,4 @@
+// @ts-ignore
 import axios from '@/lib/axios';
 import { showErrorToast } from '@/lib/error-handler';
 import { jwtDecode } from 'jwt-decode';

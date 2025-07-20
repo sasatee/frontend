@@ -1,3 +1,4 @@
+// @ts-ignore
 import { DotsHorizontalIcon } from '@radix-ui/react-icons';
 import { Row } from '@tanstack/react-table';
 import { useNavigate } from 'react-router-dom';

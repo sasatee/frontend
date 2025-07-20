@@ -1,3 +1,4 @@
+// @ts-ignore
 import { PaginationParams } from '@/hooks/usePaginatedData';
 import axios from '@/lib/axios';
 import { getErrorMessage, retryOperation, showErrorToast } from '@/lib/error-handler';

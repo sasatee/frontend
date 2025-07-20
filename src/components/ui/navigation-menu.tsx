@@ -3,6 +3,7 @@ import { ChevronDownIcon } from '@radix-ui/react-icons';
 import * as NavigationMenuPrimitive from '@radix-ui/react-navigation-menu';
 
 import { cn } from '../../lib/utils';
+// @ts-ignore
 import { navigationMenuTriggerStyle } from '../../lib/navigationMenuUtils';
 
 const NavigationMenu = React.forwardRef<

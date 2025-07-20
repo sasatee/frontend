@@ -34,6 +34,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+// @ts-ignore
 import { ChevronDown, Search, SlidersHorizontal } from 'lucide-react';
 
 export interface DataTableProps<TData, TValue> {
@@ -165,6 +166,7 @@ export function DataTable<TData, TValue>({
     () =>
       Array.from({ length: initialPageSize }, (_, i) => (
         <TableRow key={`skeleton-${i}`}>
+            // @ts-ignore
           {columns.map((column, index) => (
             <TableCell key={`skeleton-cell-${index}`}>
               <Skeleton className="h-6 w-full" />

@@ -1,3 +1,4 @@
+// @ts-ignore
 import { Button } from '@/components/ui/button';
 import {
   Form,

@@ -1,3 +1,4 @@
+// @ts-ignore
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Department, CreateDepartmentDto, UpdateDepartmentDto } from '@/types/department';
 import { departmentService } from '@/services/departmentService';

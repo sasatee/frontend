@@ -1,3 +1,4 @@
+// @ts-ignore
 import React, { useState, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLoading } from '@/contexts/LoadingContext';

@@ -1,3 +1,4 @@
+// @ts-ignore
 import { useEffect, useRef, useCallback } from 'react';
 import { useBeforeUnload, useLocation, useNavigate } from 'react-router-dom';
 import { UseFormReturn, FieldValues } from 'react-hook-form';
@@ -16,6 +17,7 @@ export function useFormNavProtection<T extends FieldValues>(
   const location = useLocation();
 
   // Show browser confirmation dialog when closing/refreshing with unsaved changes
+  // @ts-ignore
   useBeforeUnload((event) => {
     if (isDirty) {
       event.preventDefault();

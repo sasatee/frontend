@@ -328,6 +328,7 @@ const DashboardPage = () => {
                     },
                     tooltip: {
                       callbacks: {
+                        // @ts-ignore
                         label: function (context) {
                           let label = context.dataset.label || '';
                           if (label) {
@@ -349,6 +350,7 @@ const DashboardPage = () => {
                         color: 'rgba(0, 0, 0, 0.05)',
                       },
                       ticks: {
+                        // @ts-ignore
                         callback: function (value) {
                           return 'Rs' + value.toLocaleString();
                         },

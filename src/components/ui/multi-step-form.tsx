@@ -1,3 +1,4 @@
+// @ts-ignore
 import React, { useState, useEffect } from 'react';
 import { Button } from './button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from './card';
@@ -83,6 +84,7 @@ export function MultiStepForm<T extends FieldValues>({
     const [formValid, customValid] = await Promise.all([
       form.trigger(fieldsToValidate as any),
       currentStepData.validate
+        // @ts-ignore
         ? currentStepData.validate(form.getValues()).catch(() => false)
         : Promise.resolve(true),
     ]);

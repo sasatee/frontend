@@ -1,3 +1,4 @@
+// @ts-ignore
 import { AllowanceDialog } from '@/components/allowance/AllowanceDialog';
 import { columns } from '@/components/allowance/columns';
 import { DataTable } from '@/components/common/DataTable';

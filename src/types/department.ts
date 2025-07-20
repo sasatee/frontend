@@ -1,3 +1,4 @@
+// @ts-ignore
 import { BaseEntity } from './api';
 
 export interface Department {

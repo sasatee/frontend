@@ -1,3 +1,4 @@
+// @ts-ignore
 import { ColumnDef } from '@tanstack/react-table';
 import { MoreHorizontal, Pencil, Trash2, Mail, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';

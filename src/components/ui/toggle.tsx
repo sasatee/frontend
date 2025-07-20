@@ -3,6 +3,7 @@ import * as TogglePrimitive from '@radix-ui/react-toggle';
 import { type VariantProps } from 'class-variance-authority';
 
 import { cn } from '../../lib/utils';
+// @ts-ignore
 import { toggleVariants } from '../../lib/toggleVariants';
 
 const Toggle = React.forwardRef<

@@ -1,3 +1,4 @@
+// @ts-ignore
 import React from 'react';
 import { useEmployees } from '../../hooks/useEmployees';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

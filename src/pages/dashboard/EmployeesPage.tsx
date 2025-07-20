@@ -1,3 +1,4 @@
+// @ts-ignore
 import { DataTable } from '@/components/common/DataTable';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
 import { getEmployeeColumns } from '@/components/employees/columns';

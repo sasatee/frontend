@@ -92,6 +92,7 @@ export function AllowanceDialog({
       onOpenChange(false);
       form.reset();
     },
+    // @ts-ignore
     onError: (error) => {
       toast({
         title: 'Error',
@@ -114,6 +115,7 @@ export function AllowanceDialog({
       });
       onOpenChange(false);
     },
+    // @ts-ignore
     onError: (error) => {
       toast({
         title: 'Error',

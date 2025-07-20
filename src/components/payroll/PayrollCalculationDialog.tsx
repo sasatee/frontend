@@ -164,7 +164,7 @@ export function PayrollCalculationDialog({ open, onOpenChange }: PayrollCalculat
                                                                 {employee.firstName} {employee.lastName}
                                                             </span>
                                                             <span className="text-xs text-muted-foreground">
-                                                                {employee.jobTitle} • {employee.departmentName}
+                                                                {employee.jobTitle} • {employee.department?.name || 'Unknown Department'}
                                                             </span>
                                                         </div>
                                                     </SelectItem>

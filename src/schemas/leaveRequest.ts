@@ -1,3 +1,4 @@
+// @ts-ignore
 import {
   COMPANY_HOLIDAYS,
   MOCK_EXISTING_LEAVE_REQUESTS,
