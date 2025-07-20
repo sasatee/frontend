@@ -126,14 +126,6 @@ export function AccessibleLoginForm() {
       </div>
 
       <AccessibleFormActions>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => navigate('/register')}
-          disabled={isLoading}
-        >
-          Create Account
-        </Button>
         <Button type="submit" disabled={isLoading}>
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
           {isLoading ? 'Logging in...' : 'Log in'}

@@ -21,13 +21,7 @@ interface LoginCredentials {
   password: string;
 }
 
-interface RegisterCredentials {
-  email: string;
-  firstName: string;
-  lastName: string;
-  password: string;
-  roles: string[];
-}
+
 
 interface ApiResponse<T> {
   isSuccess: boolean;
@@ -159,35 +153,7 @@ export const authService = {
     }
   },
 
-  register: async (credentials: RegisterCredentials): Promise<void> => {
-    try {
-      const response = await axios.post<ApiResponse<void>>('/api/Account/register', credentials);
 
-      if (response.data && response.data.isSuccess === false) {
-        throw new Error(response.data.message || 'Registration failed');
-      }
-    } catch (error: any) {
-      // Check for validation errors in the response
-      if (error.response?.data) {
-        const responseData = error.response.data;
-
-        // Handle array of validation errors
-        if (Array.isArray(responseData)) {
-          const errorMessages = responseData
-            .map((err) => err.description || err.message)
-            .join(', ');
-          throw new Error(errorMessages || 'Registration failed with validation errors');
-        }
-
-        // Handle object with validation errors
-        if (responseData.message) {
-          throw new Error(responseData.message);
-        }
-      }
-
-      throw error;
-    }
-  },
 
   forgotPassword: async (email: string): Promise<void> => {
     try {
@@ -422,7 +388,7 @@ export const authService = {
 
 // Export functions for direct use
 export const login = (credentials: LoginCredentials) => authService.login(credentials);
-export const register = (credentials: RegisterCredentials) => authService.register(credentials);
+
 export const forgotPassword = (email: string) => authService.forgotPassword(email);
 export const changePassword = (data: ChangePasswordRequest) => authService.changePassword(data);
 export const resetPassword = (data: ResetPasswordRequest) => authService.resetPassword(data);

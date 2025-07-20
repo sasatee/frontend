@@ -27,12 +27,6 @@ interface AuthContextType {
   user: User | null;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   logout: () => Promise<void>;
-  register: (userData: {
-    email: string;
-    password: string;
-    firstName: string;
-    lastName: string;
-  }) => Promise<void>;
   isLoading: boolean;
   isAuthenticated: boolean;
   extendSession: () => Promise<void>;
@@ -329,27 +323,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const register = async (userData: {
-    email: string;
-    password: string;
-    firstName: string;
-    lastName: string;
-  }) => {
-    try {
-      setIsLoading(true);
-      // Add default role for registration
-      await authService.register({
-        ...userData,
-        roles: ['User'], // Default role
-      });
-      // After registration, user needs to log in explicitly
-    } catch (error) {
-      console.error('Registration error:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
 
   return (
     <AuthContext.Provider
@@ -357,7 +331,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         login,
         logout,
-        register,
         isLoading,
         isAuthenticated: !!user,
         extendSession: async () => {

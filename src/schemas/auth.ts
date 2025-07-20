@@ -8,32 +8,7 @@ export const loginSchema = z.object({
   rememberMe: z.boolean().optional(),
 });
 
-// Registration form schema
-export const registerSchema = z
-  .object({
-    firstName: validators
-      .requiredString('First name', 50)
-      .regex(
-        validationPatterns.namePattern,
-        'First name should contain only letters, spaces, hyphens and apostrophes'
-      ),
-    lastName: validators
-      .requiredString('Last name', 50)
-      .regex(
-        validationPatterns.namePattern,
-        'Last name should contain only letters, spaces, hyphens and apostrophes'
-      ),
-    email: validators.email(),
-    password: validators.password('Password', true), // Use stronger password validation
-    confirmPassword: z.string().min(1, 'Please confirm your password'),
-    agreeToTerms: z.boolean().refine((val) => val === true, {
-      message: 'You must agree to the terms and conditions',
-    }),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: validationMessages.passwordMismatch,
-    path: ['confirmPassword'],
-  });
+
 
 // Password reset request schema
 export const forgotPasswordSchema = z.object({
@@ -68,7 +43,6 @@ export const resetPasswordSchema = z
   });
 
 export type LoginFormValues = z.infer<typeof loginSchema>;
-export type RegisterFormValues = z.infer<typeof registerSchema>;
 export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 export type ChangePasswordFormValues = z.infer<typeof changePasswordSchema>;
 export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;

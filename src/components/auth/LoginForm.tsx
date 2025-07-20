@@ -192,16 +192,6 @@ export function LoginForm() {
         </Form>
       </CardContent>
       <CardFooter className="flex flex-col space-y-2">
-        <div className="text-center text-sm text-muted-foreground">
-          Don't have an account?{' '}
-          <Button
-            variant="link"
-            className="h-auto p-0 font-semibold"
-            onClick={() => navigate('/register')}
-          >
-            Sign up
-          </Button>
-        </div>
       </CardFooter>
     </Card>
   );

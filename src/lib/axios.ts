@@ -167,8 +167,8 @@ axiosInstance.interceptors.response.use(
 
     // Handle 401 Unauthorized errors with token refresh logic
     if (error.response?.status === 401 && !originalRequest._retry) {
-      // Skip refresh token for login/register endpoints
-      if (originalRequest.url?.includes('/login') || originalRequest.url?.includes('/register')) {
+          // Skip refresh token for login endpoint
+    if (originalRequest.url?.includes('/login')) {
         return Promise.reject(error);
       }
 
